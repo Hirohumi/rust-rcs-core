@@ -39,3 +39,10 @@ where
     #[cfg(not(any(target_arch = "arm", target_arch = "aarch64")))]
     println!("{}:   {}", tag, message.as_ref());
 }
+
+#[cfg(release_assertions)]
+pub fn platform_log<M>(tag: &str, message: M)
+where
+    M: AsRef<str>,
+{
+}
