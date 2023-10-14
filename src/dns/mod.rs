@@ -34,7 +34,10 @@ use trust_dns_client::client::{AsyncClient, ClientHandle};
 use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
 use trust_dns_client::udp::UdpClientStream;
 
+use crate::ffi::log::platform_log;
 use crate::util::raw_string::StrEq;
+
+const LOG_TAG: &str = "dns";
 
 const REQUEST_BUFFER_SIZE: usize = 16;
 
@@ -82,9 +85,8 @@ impl DnsClient {
                     Some(dr) => {
                         match dr {
                             DnsRequest::Default(config, host, tx) => {
-                                let mut stdout = tokio::io::stdout();
 
-                                stdout.write(b"getting dns request\r\n").await.unwrap();
+                                platform_log(LOG_TAG, "getting dns request");
 
                                 let now = Instant::now();
                                 let mut cached = Vec::new();
@@ -104,7 +106,7 @@ impl DnsClient {
                                 if cached.is_empty() {
                                     let cache = Arc::clone(&cache_a_aaaa);
 
-                                    stdout.write(b"start dns\r\n").await.unwrap();
+                                    platform_log(LOG_TAG, "start dns");
 
                                     tokio::spawn(async move {
                                         for server_addr in config.server_addrs {
@@ -114,14 +116,14 @@ impl DnsClient {
 
                                             if let Ok((mut client, bg)) = AsyncClient::connect(stream).await
                                             {
-                                                stdout.write(b"dns server connected\r\n").await.unwrap();
+                                                platform_log(LOG_TAG, "dns server connected");
 
                                                 tokio::spawn(async move {
                                                     bg.await.unwrap();
                                                 });
 
                                                 if let Ok(name) = Name::from_str(&host) {
-                                                    stdout.write(b"start AAAA query\r\n").await.unwrap();
+                                                    platform_log(LOG_TAG, "start AAAA query");
 
                                                     match time::timeout_at(
                                                         Instant::now() + Duration::from_secs(15),
@@ -159,13 +161,13 @@ impl DnsClient {
                                                         }
 
                                                         Err(_) => {
-                                                            stdout.write(b"dns timeout\r\n").await.unwrap();
+                                                            platform_log(LOG_TAG, "dns timeout");
                                                         }
                                                     }
                                                 }
 
                                                 if let Ok(name) = Name::from_str(&host) {
-                                                    stdout.write(b"start A query\r\n").await.unwrap();
+                                                    platform_log(LOG_TAG, "start A query");
 
                                                     match time::timeout_at(
                                                         Instant::now() + Duration::from_secs(15),
@@ -202,7 +204,7 @@ impl DnsClient {
                                                         }
 
                                                         Err(_) => {
-                                                            stdout.write(b"dns timeout\r\n").await.unwrap();
+                                                            platform_log(LOG_TAG, "dns timeout");
                                                         }
                                                     }
                                                 }
@@ -227,9 +229,8 @@ impl DnsClient {
                             }
 
                             DnsRequest::SipNaptr(config, q_name, q_service_type, tx) => {
-                                let mut stdout = tokio::io::stdout();
 
-                                stdout.write(b"getting dns request\r\n").await.unwrap();
+                                platform_log(LOG_TAG, "getting dns request");
 
                                 let now = Instant::now();
                                 let mut cached = Vec::new();
@@ -258,14 +259,14 @@ impl DnsClient {
 
                                             if let Ok((mut client, bg)) = AsyncClient::connect(stream).await
                                             {
-                                                stdout.write(b"dns server connected\r\n").await.unwrap();
+                                                platform_log(LOG_TAG, "dns server connected");
 
                                                 tokio::spawn(async move {
                                                     bg.await.unwrap();
                                                 });
 
                                                 if let Ok(name) = Name::from_str(&q_name) {
-                                                    stdout.write(b"start NAPTR query\r\n").await.unwrap();
+                                                    platform_log(LOG_TAG, "start NAPTR query");
 
                                                     match time::timeout_at(
                                                         Instant::now() + Duration::from_secs(15),
@@ -285,7 +286,9 @@ impl DnsClient {
 
                                                                                 let replacement = ptr.replacement().clone();
 
-                                                                                stdout.write(b"start SRV query\r\n").await.unwrap();
+                                                                                platform_log(LOG_TAG, format!("naptr replacement: {:?}", &replacement));
+
+                                                                                platform_log(LOG_TAG, "start SRV query");
 
                                                                                 match time::timeout_at(
                                                                                     Instant::now() + Duration::from_secs(15),
@@ -302,7 +305,14 @@ impl DnsClient {
                                                                                                     if let RData::SRV(srv) = rd {
                                                                                                         successful = true;
 
-                                                                                                        let target = srv.target().to_string();
+                                                                                                        let target = srv.target();
+                                                                                                        platform_log(LOG_TAG, format!("srv target: {:?}", target));
+                                                                                                        let target = target.to_string();
+                                                                                                        let target = if target.ends_with('.') {
+                                                                                                            String::from(&target[0..target.len() - 1])
+                                                                                                        } else {
+                                                                                                            target
+                                                                                                        };
                                                                                                         let port = srv.port();
 
                                                                                                         let ttl = r.ttl();
@@ -327,7 +337,7 @@ impl DnsClient {
                                                                                     }
 
                                                                                     Err(_) => {
-                                                                                        stdout.write(b"dns timeout\r\n").await.unwrap();
+                                                                                        platform_log(LOG_TAG, "dns timeout");
                                                                                     }
                                                                                 }
                                                                             }
@@ -338,7 +348,7 @@ impl DnsClient {
                                                         }
 
                                                         Err(_) => {
-                                                            stdout.write(b"dns timeout\r\n").await.unwrap();
+                                                            platform_log(LOG_TAG, "dns timeout");
                                                         }
                                                     }
                                                 }

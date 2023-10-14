@@ -347,23 +347,25 @@ async fn send_ub_message(
 ) -> Result<(Response, Option<Box<dyn AsyncBufRead + Send + Unpin>>), ErrorKind> {
     let host = url.host_str().unwrap();
 
-    let mut req = Request::new_with_default_headers(GET, host, "/", None);
-
-    match url.host() {
+    let host = match url.host() {
         Some(Host::Domain(domain)) => {
-            req.headers.push(Header::new(b"Host", String::from(domain)));
+            String::from(domain)
         }
 
         Some(Host::Ipv4(ip)) => {
-            req.headers.push(Header::new(b"Host", ip.to_string()));
+            ip.to_string()
         }
 
         Some(Host::Ipv6(ip)) => {
-            req.headers.push(Header::new(b"Host", ip.to_string()));
+            ip.to_string()
         }
 
-        None => {}
-    }
+        None => {
+            String::from(host)
+        }
+    };
+
+    let mut req = Request::new_with_default_headers(GET, &host, "/", None);
 
     req.headers
         .push(Header::new(b"Authorization", authorization));
@@ -516,6 +518,11 @@ async fn decode_ub_resp<'a>(
                         {
                             digest_answer.challenge = Some(challenge_params.to_challenge());
 
+                            // to-do: can we really do this ?
+                            if digest_answer.uri.len() == 0 {
+                                digest_answer.uri = b"/".to_vec();
+                            }
+
                             if let Ok(response) =
                                 aka::aka_do_challenge(&aka_challenge, subscription_id)
                             {
@@ -526,7 +533,7 @@ async fn decode_ub_resp<'a>(
                                             password: res,
                                             client_data: Some(b"GET".to_vec()),
                                             client_nonce: Some((cnonce, 1)),
-                                            entity_digest: Some(b"".to_vec()),
+                                            entity_digest: None,
                                             extra_params: Vec::new(),
                                         });
                                         if let Ok(authorization) = digest_answer
@@ -551,7 +558,7 @@ async fn decode_ub_resp<'a>(
                                             password: b"".to_vec(),
                                             client_data: Some(b"GET".to_vec()),
                                             client_nonce: Some((cnonce, 1)),
-                                            entity_digest: Some(b"".to_vec()),
+                                            entity_digest: None,
                                             extra_params: Vec::new(),
                                         });
                                         if let Ok(mut authorization) = digest_answer

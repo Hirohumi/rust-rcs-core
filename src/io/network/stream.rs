@@ -184,6 +184,7 @@ impl Future for Handshaker {
 }
 
 struct SyncTcpStream<'a, 'b> {
+    // to-do: this, should be the entry point for platform sockets
     stream: &'a mut TcpStream,
     cx: &'a mut Context<'b>,
 }
