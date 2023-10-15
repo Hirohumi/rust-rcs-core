@@ -348,21 +348,13 @@ async fn send_ub_message(
     let host = url.host_str().unwrap();
 
     let host = match url.host() {
-        Some(Host::Domain(domain)) => {
-            String::from(domain)
-        }
+        Some(Host::Domain(domain)) => String::from(domain),
 
-        Some(Host::Ipv4(ip)) => {
-            ip.to_string()
-        }
+        Some(Host::Ipv4(ip)) => ip.to_string(),
 
-        Some(Host::Ipv6(ip)) => {
-            ip.to_string()
-        }
+        Some(Host::Ipv6(ip)) => ip.to_string(),
 
-        None => {
-            String::from(host)
-        }
+        None => String::from(host),
     };
 
     let mut req = Request::new_with_default_headers(GET, &host, "/", None);
