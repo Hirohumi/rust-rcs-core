@@ -1,6 +1,6 @@
 [package]
 name = "rust-rcs-core"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Core libraries that provide basic RCS capabilities (SIP, MSRP, etc.)"
 license = "Apache-2.0"
