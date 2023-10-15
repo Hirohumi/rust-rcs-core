@@ -40,7 +40,7 @@ where
     println!("{}:   {}", tag, message.as_ref());
 }
 
-#[cfg(release_assertions)]
+#[cfg(not(debug_assertions))]
 pub fn platform_log<M>(tag: &str, message: M)
 where
     M: AsRef<str>,
