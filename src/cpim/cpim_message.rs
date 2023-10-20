@@ -237,7 +237,7 @@ impl<'a> CPIMMessage {
                         }
                     }
                     if let Some(h) = header::search(&m.headers, b"Content-Type", true) {
-                        Some((Some(h.get_value()), &r, base64_encoded))
+                        Some((Some(syntax::trim(h.get_value())), &r, base64_encoded))
                     } else {
                         Some((None, &r, base64_encoded))
                     }
