@@ -457,7 +457,7 @@ impl HttpClient {
     }
 
     async fn connect_tcp(ip: IpAddr, port: u16) -> Result<ClientStream> {
-        match ClientStream::new(ip, port).await {
+        match ClientStream::new_tokio(ip, port).await {
             Ok(client_stream) => Ok(client_stream),
 
             Err(e) => Err(ErrorKind::Stream(e)),
@@ -470,7 +470,7 @@ impl HttpClient {
         client_config: Arc<ClientConfig>,
         server_name: &str,
     ) -> Result<(ClientStream, Option<(u8, u8)>)> {
-        match ClientStream::new_ssl(client_config, ip, port, server_name).await {
+        match ClientStream::new_tokio_ssl(client_config, ip, port, server_name).await {
             Ok(client_stream) => match client_stream.do_handshake().await {
                 Ok((client_stream, cipher_id)) => {
                     platform_log(LOG_TAG, format!("ssl do_handshake success"));
