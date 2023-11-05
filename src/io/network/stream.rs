@@ -97,10 +97,13 @@ impl ClientStream {
         match AndroidTcpStream::create(true, host_name) {
             Ok(stream) => match stream.connect(ip, port) {
                 Ok(task) => match task.await {
-                    Ok(stream) => Ok(ClientStream::AndroidNative(AndroidStream::Tls(
-                        stream,
-                        TlsState::Connected,
-                    ))),
+                    Ok(stream) => match stream.start_handshake() {
+                        Ok(()) => Ok(ClientStream::AndroidNative(AndroidStream::Tls(
+                            stream,
+                            TlsState::Connected,
+                        ))),
+                        Err(_) => Err(ErrorKind::Io),
+                    },
                     Err(_) => Err(ErrorKind::Io),
                 },
                 Err(_) => Err(ErrorKind::Io),
