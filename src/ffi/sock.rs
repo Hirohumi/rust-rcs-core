@@ -139,6 +139,7 @@ extern "C" {
     fn platform_free_socket(c_handle: *mut SocketCHandle);
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn socket_event_on_connect_avaliable(
     socket_event_receiver: *mut SocketEventReceiverHandle,
 ) {
@@ -150,6 +151,7 @@ pub unsafe extern "C" fn socket_event_on_connect_avaliable(
     }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn socket_event_on_handshake_avaliable(
     socket_event_receiver: *mut SocketEventReceiverHandle,
 ) {
@@ -161,6 +163,7 @@ pub unsafe extern "C" fn socket_event_on_handshake_avaliable(
     }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn socket_event_on_read_avaliable(
     socket_event_receiver: *mut SocketEventReceiverHandle,
 ) {
@@ -172,6 +175,7 @@ pub unsafe extern "C" fn socket_event_on_read_avaliable(
     }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn socket_event_on_write_avaliable(
     socket_event_receiver: *mut SocketEventReceiverHandle,
 ) {
@@ -183,6 +187,7 @@ pub unsafe extern "C" fn socket_event_on_write_avaliable(
     }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn destroy_socket_event_receiver(
     socket_event_receiver: *mut SocketEventReceiverHandle,
 ) {
