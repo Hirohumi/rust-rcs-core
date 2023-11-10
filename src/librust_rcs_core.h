@@ -72,8 +72,8 @@ int platform_socket_connect(struct platform_socket *sock, const char *r_addr, u_
 int platform_socket_finish_connect(struct platform_socket *sock, struct rust_async_waker *waker);
 int platform_socket_start_handshake(struct platform_socket *sock);
 int platform_socket_finish_handshake(struct platform_socket *sock, struct rust_async_waker *waker);
-int platform_read_socket(struct platform_socket *sock, void *buffer, size_t buffer_len, size_t *bytes_read, struct rust_async_waker *waker);
-int platform_write_socket(struct platform_socket *sock, void *buffer, size_t buffer_len, size_t *bytes_written, struct rust_async_waker *waker);
+int platform_read_socket(struct platform_socket *sock, struct rust_async_waker *waker, void *buffer, size_t buffer_len, size_t *bytes_read);
+int platform_write_socket(struct platform_socket *sock, struct rust_async_waker *waker, void *buffer, size_t buffer_len, size_t *bytes_written);
 void platform_close_socket(struct platform_socket *sock);
 void platform_free_socket(struct platform_socket *sock);
 
