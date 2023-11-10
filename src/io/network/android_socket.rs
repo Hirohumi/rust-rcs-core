@@ -8,39 +8,45 @@ use std::{
 use futures::Future;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use crate::ffi::sock::{
-    cipher_suite_get_yy, cipher_suite_get_zz, close_socket, create_socket, get_socket_info,
-    get_socket_local_address, get_socket_local_port, get_socket_session_cipher_suite, read_socket,
-    socket_connect, socket_finish_connect, socket_finish_handshake, socket_start_handshake,
-    write_socket, SocketCHandleWrapper, SocketEventReceiverHandle,
+use crate::ffi::{
+    log::platform_log,
+    r#async::WakerHandle,
+    sock::{
+        cipher_suite_get_yy, cipher_suite_get_zz, close_socket, create_socket, get_socket_info,
+        get_socket_local_address, get_socket_local_port, get_socket_session_cipher_suite,
+        read_socket, socket_connect, socket_finish_connect, socket_finish_handshake,
+        socket_start_handshake, write_socket, SocketCHandleWrapper,
+    },
 };
+
+const LOG_TAG: &str = "socket";
 
 pub struct AndroidTcpStream {
     pub(crate) socket: SocketCHandleWrapper,
-    pub(crate) event_receiver: SocketEventReceiverHandle,
 }
 
 impl AndroidTcpStream {
     pub fn create(tls: bool, host_name: &str) -> io::Result<AndroidTcpStream> {
-        let (socket, event_receiver) = create_socket(tls, host_name)?;
-        Ok(AndroidTcpStream {
-            socket,
-            event_receiver,
-        })
+        let socket = create_socket(tls, host_name)?;
+        Ok(AndroidTcpStream { socket })
     }
 
     pub fn connect(self, ip: IpAddr, port: u16) -> io::Result<ConnectTask> {
+        platform_log(LOG_TAG, "connect()");
         let remote_ip = ip.to_string();
         socket_connect(&self.socket, &remote_ip, port)?;
         Ok(ConnectTask { stream: Some(self) })
     }
 
     pub fn start_handshake(&self) -> io::Result<()> {
+        platform_log(LOG_TAG, "start_handshake()");
         socket_start_handshake(&self.socket)
     }
 
     pub fn poll_handshake(&self, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        match socket_finish_handshake(&self.socket) {
+        let waker = cx.waker();
+        let waker = WakerHandle::new(waker);
+        match socket_finish_handshake(&self.socket, waker) {
             Ok(()) => Poll::Ready(Ok(())),
 
             Err(e) => match e.kind() {
@@ -84,18 +90,22 @@ impl Future for ConnectTask {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let task = self.get_mut();
         match task.stream.take() {
-            Some(stream) => match socket_finish_connect(&stream.socket) {
-                Ok(()) => Poll::Ready(Ok(stream)),
+            Some(stream) => {
+                let waker = cx.waker();
+                let waker = WakerHandle::new(waker);
+                match socket_finish_connect(&stream.socket, waker) {
+                    Ok(()) => Poll::Ready(Ok(stream)),
 
-                Err(e) => match e.kind() {
-                    io::ErrorKind::WouldBlock => {
-                        task.stream.replace(stream);
-                        Poll::Pending
-                    }
+                    Err(e) => match e.kind() {
+                        io::ErrorKind::WouldBlock => {
+                            task.stream.replace(stream);
+                            Poll::Pending
+                        }
 
-                    _ => Poll::Ready(Err(e)),
-                },
-            },
+                        _ => Poll::Ready(Err(e)),
+                    },
+                }
+            }
 
             None => Poll::Ready(Err(io::Error::from(io::ErrorKind::BrokenPipe))),
         }
@@ -112,7 +122,10 @@ impl AsyncRead for AndroidTcpStream {
 
         let buffer = buf.initialize_unfilled();
 
-        match read_socket(&stream.socket, buffer) {
+        let waker = cx.waker();
+        let waker = WakerHandle::new(waker);
+
+        match read_socket(&stream.socket, buffer, waker) {
             Ok(r) => {
                 buf.advance(r);
                 return Poll::Ready(Ok(()));
@@ -120,11 +133,6 @@ impl AsyncRead for AndroidTcpStream {
 
             Err(e) => match e.kind() {
                 io::ErrorKind::WouldBlock => {
-                    let waker = cx.waker().clone();
-                    {
-                        let mut guard = stream.event_receiver.read_waker.lock().unwrap();
-                        guard.replace(waker);
-                    }
                     return Poll::Pending;
                 }
 
@@ -144,18 +152,16 @@ impl AsyncWrite for AndroidTcpStream {
     ) -> Poll<Result<usize, io::Error>> {
         let stream = self.get_mut();
 
-        match write_socket(&stream.socket, buf) {
+        let waker = cx.waker();
+        let waker = WakerHandle::new(waker);
+
+        match write_socket(&stream.socket, buf, waker) {
             Ok(r) => {
                 return Poll::Ready(Ok(r));
             }
 
             Err(e) => match e.kind() {
                 io::ErrorKind::WouldBlock => {
-                    let waker = cx.waker().clone();
-                    {
-                        let mut guard = stream.event_receiver.write_waker.lock().unwrap();
-                        guard.replace(waker);
-                    }
                     return Poll::Pending;
                 }
 

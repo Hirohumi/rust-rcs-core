@@ -14,15 +14,17 @@
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 use std::ffi::{CStr, CString};
-use std::{
-    io,
-    ptr::NonNull,
-    sync::{Arc, Mutex},
-    task::Waker,
-};
+use std::{io, ptr::NonNull};
 
+use libc::c_void;
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 use libc::{c_char, size_t, sockaddr_storage, socklen_t};
+
+use crate::ffi::log::platform_log;
+
+use super::r#async::WakerHandle;
+
+const LOG_TAG: &str = "ffi";
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 extern "C" {
@@ -81,117 +83,39 @@ pub fn pton(af: i32, network_address: &str) -> Option<sockaddr_storage> {
     None
 }
 
-pub struct SocketEventReceiverHandle {
-    pub(crate) connect_waker: Arc<Mutex<Option<Waker>>>,
-    pub(crate) handshake_waker: Arc<Mutex<Option<Waker>>>,
-    pub(crate) read_waker: Arc<Mutex<Option<Waker>>>,
-    pub(crate) write_waker: Arc<Mutex<Option<Waker>>>,
-}
-
-impl SocketEventReceiverHandle {
-    pub(crate) fn new() -> SocketEventReceiverHandle {
-        SocketEventReceiverHandle {
-            connect_waker: Arc::new(Mutex::new(None)),
-            handshake_waker: Arc::new(Mutex::new(None)),
-            read_waker: Arc::new(Mutex::new(None)),
-            write_waker: Arc::new(Mutex::new(None)),
-        }
-    }
-
-    pub(crate) fn with(receiver: &SocketEventReceiverHandle) -> SocketEventReceiverHandle {
-        SocketEventReceiverHandle {
-            connect_waker: Arc::clone(&receiver.connect_waker),
-            handshake_waker: Arc::clone(&receiver.handshake_waker),
-            read_waker: Arc::clone(&receiver.read_waker),
-            write_waker: Arc::clone(&receiver.write_waker),
-        }
-    }
-}
-
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 extern "C" {
-    fn platform_create_socket(
-        event_receiver: Box<SocketEventReceiverHandle>,
-        use_tls: bool,
-        host_name: *const c_char,
-    ) -> *mut SocketCHandle;
+    fn platform_create_socket(use_tls: bool, host_name: *const c_char) -> *mut SocketCHandle;
     fn platform_socket_connect(
         c_handle: *mut SocketCHandle,
         remote_ip: *const c_char,
         remote_port: u16,
     ) -> i32;
-    fn platform_socket_finish_connect(c_handle: *mut SocketCHandle) -> i32; // returns 0 for success, 114 (EALREADY) for pending status
+    fn platform_socket_finish_connect(
+        c_handle: *mut SocketCHandle,
+        waker_handle: *mut c_void,
+    ) -> i32; // returns 0 for success, 114 (EALREADY) for pending status
     fn platform_socket_start_handshake(c_handle: *mut SocketCHandle) -> i32;
-    fn platform_socket_finish_handshake(c_handle: *mut SocketCHandle) -> i32; // returns 0 for success, 114 (EALREADY) for pending status
+    fn platform_socket_finish_handshake(
+        c_handle: *mut SocketCHandle,
+        waker_handle: *mut c_void,
+    ) -> i32; // returns 0 for success, 114 (EALREADY) for pending status
     fn platform_read_socket(
         c_handle: *mut SocketCHandle,
+        waker_handle: *mut c_void,
         buffer: *mut u8,
         buffer_len: size_t,
         bytes_read: *mut size_t,
     ) -> i32; // returns 0 for success, 11 (EAGAIN/EWOULDBLOCK) for pending status
     fn platform_write_socket(
         c_handle: *mut SocketCHandle,
+        waker_handle: *mut c_void,
         buffer: *const u8,
         buffer_len: size_t,
         bytes_written: *mut size_t,
     ) -> i32; // returns 0 for success, 11 (EAGAIN/EWOULDBLOCK) for pending status
     fn platform_close_socket(c_handle: *mut SocketCHandle);
     fn platform_free_socket(c_handle: *mut SocketCHandle);
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn socket_event_on_connect_avaliable(
-    socket_event_receiver: *mut SocketEventReceiverHandle,
-) {
-    if let Some(socket_event_receiver) = socket_event_receiver.as_mut() {
-        let mut guard = socket_event_receiver.connect_waker.lock().unwrap();
-        if let Some(waker) = guard.take() {
-            waker.wake();
-        }
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn socket_event_on_handshake_avaliable(
-    socket_event_receiver: *mut SocketEventReceiverHandle,
-) {
-    if let Some(socket_event_receiver) = socket_event_receiver.as_mut() {
-        let mut guard = socket_event_receiver.handshake_waker.lock().unwrap();
-        if let Some(waker) = guard.take() {
-            waker.wake();
-        }
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn socket_event_on_read_avaliable(
-    socket_event_receiver: *mut SocketEventReceiverHandle,
-) {
-    if let Some(socket_event_receiver) = socket_event_receiver.as_mut() {
-        let mut guard = socket_event_receiver.read_waker.lock().unwrap();
-        if let Some(waker) = guard.take() {
-            waker.wake();
-        }
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn socket_event_on_write_avaliable(
-    socket_event_receiver: *mut SocketEventReceiverHandle,
-) {
-    if let Some(socket_event_receiver) = socket_event_receiver.as_mut() {
-        let mut guard = socket_event_receiver.write_waker.lock().unwrap();
-        if let Some(waker) = guard.take() {
-            waker.wake();
-        }
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn destroy_socket_event_receiver(
-    socket_event_receiver: *mut SocketEventReceiverHandle,
-) {
-    let _ = Box::from_raw(socket_event_receiver);
 }
 
 #[repr(C)]
@@ -214,25 +138,15 @@ impl Drop for SocketCHandleWrapper {
 }
 
 unsafe impl Send for SocketCHandleWrapper {}
-unsafe impl Sync for SocketCHandleWrapper {}
 
-pub fn create_socket(
-    tls: bool,
-    host_name: &str,
-) -> io::Result<(SocketCHandleWrapper, SocketEventReceiverHandle)> {
+pub fn create_socket(tls: bool, host_name: &str) -> io::Result<SocketCHandleWrapper> {
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     {
         let host_name = CString::new(host_name).unwrap();
         let host_name = host_name.as_ptr();
-        let receiver = SocketEventReceiverHandle::new();
-        let _receiver = SocketEventReceiverHandle::with(&receiver);
-        let _receiver = Box::new(_receiver);
         unsafe {
-            if let Some(c_handle) = platform_create_socket(_receiver, tls, host_name).as_mut() {
-                return Ok((
-                    SocketCHandleWrapper(NonNull::new(c_handle).unwrap()),
-                    receiver,
-                ));
+            if let Some(c_handle) = platform_create_socket(tls, host_name).as_mut() {
+                return Ok(SocketCHandleWrapper(NonNull::new(c_handle).unwrap()));
             }
         }
     }
@@ -252,6 +166,7 @@ pub fn socket_connect(
         let remote_ip = remote_ip.as_ptr();
         unsafe {
             let r = platform_socket_connect(c_socket, remote_ip, remote_port);
+            platform_log(LOG_TAG, format!("platform_socket_connect returns {}", r));
             if r == 0 {
                 return Ok(());
             } else if r == libc::EAGAIN || r == libc::EWOULDBLOCK {
@@ -266,12 +181,22 @@ pub fn socket_connect(
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
-pub fn socket_finish_connect(c_socket: &SocketCHandleWrapper) -> io::Result<()> {
+pub fn socket_finish_connect(
+    c_socket: &SocketCHandleWrapper,
+    waker: WakerHandle,
+) -> io::Result<()> {
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     {
         let c_socket = c_socket.0.as_ptr();
+        let waker = Box::new(waker);
+        let waker = Box::into_raw(waker);
+        let waker = waker as *mut c_void;
         unsafe {
-            let r = platform_socket_finish_connect(c_socket);
+            let r = platform_socket_finish_connect(c_socket, waker);
+            platform_log(
+                LOG_TAG,
+                format!("platform_socket_finish_connect returns {}", r),
+            );
             if r == 0 {
                 return Ok(());
             } else if r == libc::EALREADY {
@@ -292,6 +217,10 @@ pub fn socket_start_handshake(c_socket: &SocketCHandleWrapper) -> io::Result<()>
         let c_socket = c_socket.0.as_ptr();
         unsafe {
             let r = platform_socket_start_handshake(c_socket);
+            platform_log(
+                LOG_TAG,
+                format!("platform_socket_start_handshake returns {}", r),
+            );
             if r == 0 {
                 return Ok(());
             } else {
@@ -304,12 +233,22 @@ pub fn socket_start_handshake(c_socket: &SocketCHandleWrapper) -> io::Result<()>
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
-pub fn socket_finish_handshake(c_socket: &SocketCHandleWrapper) -> io::Result<()> {
+pub fn socket_finish_handshake(
+    c_socket: &SocketCHandleWrapper,
+    waker: WakerHandle,
+) -> io::Result<()> {
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     {
         let c_socket = c_socket.0.as_ptr();
+        let waker = Box::new(waker);
+        let waker = Box::into_raw(waker);
+        let waker = waker as *mut c_void;
         unsafe {
-            let r = platform_socket_finish_handshake(c_socket);
+            let r = platform_socket_finish_handshake(c_socket, waker);
+            platform_log(
+                LOG_TAG,
+                format!("platform_socket_finish_handshake returns {}", r),
+            );
             if r == 0 {
                 return Ok(());
             } else if r == libc::EALREADY {
@@ -324,15 +263,23 @@ pub fn socket_finish_handshake(c_socket: &SocketCHandleWrapper) -> io::Result<()
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
-pub fn read_socket(c_socket: &SocketCHandleWrapper, buffer: &mut [u8]) -> io::Result<usize> {
+pub fn read_socket(
+    c_socket: &SocketCHandleWrapper,
+    buffer: &mut [u8],
+    waker: WakerHandle,
+) -> io::Result<usize> {
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     {
         let c_socket = c_socket.0.as_ptr();
         let buffer_len = buffer.len();
         let buffer = buffer.as_mut_ptr();
+        let waker = Box::new(waker);
+        let waker = Box::into_raw(waker);
+        let waker = waker as *mut c_void;
         unsafe {
             let mut bytes_read = 0;
-            let r = platform_read_socket(c_socket, buffer, buffer_len, &mut bytes_read);
+            let r = platform_read_socket(c_socket, waker, buffer, buffer_len, &mut bytes_read);
+            platform_log(LOG_TAG, format!("platform_read_socket returns {}", r));
             if r == 0 {
                 return Ok(bytes_read);
             } else if r == libc::EAGAIN || r == libc::EWOULDBLOCK {
@@ -347,16 +294,23 @@ pub fn read_socket(c_socket: &SocketCHandleWrapper, buffer: &mut [u8]) -> io::Re
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
-pub fn write_socket(c_socket: &SocketCHandleWrapper, buffer: &[u8]) -> io::Result<usize> {
+pub fn write_socket(
+    c_socket: &SocketCHandleWrapper,
+    buffer: &[u8],
+    waker: WakerHandle,
+) -> io::Result<usize> {
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     {
         let c_socket = c_socket.0.as_ptr();
         let buffer_len = buffer.len();
         let buffer = buffer.as_ptr();
-
+        let waker = Box::new(waker);
+        let waker = Box::into_raw(waker);
+        let waker = waker as *mut c_void;
         unsafe {
             let mut bytes_written = 0;
-            let r = platform_write_socket(c_socket, buffer, buffer_len, &mut bytes_written);
+            let r = platform_write_socket(c_socket, waker, buffer, buffer_len, &mut bytes_written);
+            platform_log(LOG_TAG, format!("platform_write_socket returns {}", r));
             if r == 0 {
                 return Ok(bytes_written);
             } else if r == libc::EAGAIN || r == libc::EWOULDBLOCK {

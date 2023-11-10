@@ -16,6 +16,7 @@ use std::ffi::CString;
 
 use libc::c_char;
 
+pub mod r#async;
 pub mod icc;
 pub mod log;
 pub mod net_ctrl;
