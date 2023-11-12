@@ -279,7 +279,13 @@ pub fn read_socket(
         unsafe {
             let mut bytes_read = 0;
             let r = platform_read_socket(c_socket, waker, buffer, buffer_len, &mut bytes_read);
-            platform_log(LOG_TAG, format!("platform_read_socket returns {}", r));
+            platform_log(
+                LOG_TAG,
+                format!(
+                    "platform_read_socket returns {} with {} bytes read",
+                    r, bytes_read
+                ),
+            );
             if r == 0 {
                 return Ok(bytes_read);
             } else if r == libc::EAGAIN || r == libc::EWOULDBLOCK {
@@ -310,7 +316,13 @@ pub fn write_socket(
         unsafe {
             let mut bytes_written = 0;
             let r = platform_write_socket(c_socket, waker, buffer, buffer_len, &mut bytes_written);
-            platform_log(LOG_TAG, format!("platform_write_socket returns {}", r));
+            platform_log(
+                LOG_TAG,
+                format!(
+                    "platform_write_socket returns {} with {} bytes written",
+                    r, bytes_written
+                ),
+            );
             if r == 0 {
                 return Ok(bytes_written);
             } else if r == libc::EAGAIN || r == libc::EWOULDBLOCK {

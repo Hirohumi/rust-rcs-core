@@ -88,26 +88,37 @@ impl Future for ConnectTask {
     type Output = io::Result<AndroidTcpStream>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        platform_log(LOG_TAG, "ConnectTask->poll()");
         let task = self.get_mut();
         match task.stream.take() {
             Some(stream) => {
                 let waker = cx.waker();
                 let waker = WakerHandle::new(waker);
                 match socket_finish_connect(&stream.socket, waker) {
-                    Ok(()) => Poll::Ready(Ok(stream)),
+                    Ok(()) => {
+                        platform_log(LOG_TAG, "ConnectTask->poll() result Ready");
+                        Poll::Ready(Ok(stream))
+                    }
 
                     Err(e) => match e.kind() {
                         io::ErrorKind::WouldBlock => {
+                            platform_log(LOG_TAG, "ConnectTask->poll() result Pending");
                             task.stream.replace(stream);
                             Poll::Pending
                         }
 
-                        _ => Poll::Ready(Err(e)),
+                        _ => {
+                            platform_log(LOG_TAG, "ConnectTask->poll() result Error");
+                            Poll::Ready(Err(e))
+                        }
                     },
                 }
             }
 
-            None => Poll::Ready(Err(io::Error::from(io::ErrorKind::BrokenPipe))),
+            None => {
+                platform_log(LOG_TAG, "ConnectTask->poll() result Error");
+                Poll::Ready(Err(io::Error::from(io::ErrorKind::BrokenPipe)))
+            }
         }
     }
 }

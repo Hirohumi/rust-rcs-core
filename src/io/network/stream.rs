@@ -34,6 +34,8 @@ use crate::ffi::log::platform_log;
 
 use super::android_socket::AndroidTcpStream;
 
+const LOG_TAG: &str = "socket_stream";
+
 pub enum AndroidStream {
     Tcp(AndroidTcpStream),
     Tls(AndroidTcpStream, TlsState),
@@ -202,6 +204,7 @@ pub struct AndroidHandshaker {
 impl Future for AndroidHandshaker {
     type Output = Result<(ClientStream, Option<(u8, u8)>)>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        platform_log(LOG_TAG, "AndroidHandshaker->poll()");
         let task = self.get_mut();
         match task.stream.take() {
             Some(mut stream) => match stream {
@@ -224,7 +227,7 @@ impl Future for AndroidHandshaker {
                                     Poll::Ready(Err(ErrorKind::HandshakeFailure))
                                 }
                             }
-                            Err(e) => Poll::Ready(Err(ErrorKind::HandshakeFailure)),
+                            Err(_) => Poll::Ready(Err(ErrorKind::HandshakeFailure)),
                         },
                         Poll::Pending => {
                             task.stream.replace(stream);
@@ -253,6 +256,7 @@ pub struct TokioHandshaker {
 impl Future for TokioHandshaker {
     type Output = Result<(ClientStream, Option<(u8, u8)>)>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        platform_log(LOG_TAG, "TokioHandshaker->poll()");
         let task = self.get_mut();
         match task.stream.take() {
             Some(mut stream) => match stream {
