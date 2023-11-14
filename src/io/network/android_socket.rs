@@ -15,7 +15,7 @@ use crate::ffi::{
         cipher_suite_get_yy, cipher_suite_get_zz, close_socket, create_socket, get_socket_info,
         get_socket_local_address, get_socket_local_port, get_socket_session_cipher_suite,
         read_socket, socket_connect, socket_finish_connect, socket_finish_handshake,
-        socket_start_handshake, write_socket, SocketCHandleWrapper,
+        socket_start_handshake, write_socket, SocketCHandleWrapper, shutdown_socket,
     },
 };
 
@@ -189,10 +189,24 @@ impl AsyncWrite for AndroidTcpStream {
         Poll::Ready(Ok(()))
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let stream = self.get_mut();
-        close_socket(&stream.socket);
-        Poll::Ready(Ok(()))
+
+        let waker = cx.waker();
+        let waker = WakerHandle::new(waker);
+
+        match shutdown_socket(&stream.socket, waker) {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(e) => match e.kind() {
+                io::ErrorKind::WouldBlock => {
+                    return Poll::Pending;
+                }
+
+                _ => {
+                    return Poll::Ready(Err(e));
+                }
+            },
+        }
     }
 }
 
