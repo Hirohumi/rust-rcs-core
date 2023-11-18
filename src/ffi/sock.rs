@@ -114,10 +114,7 @@ extern "C" {
         buffer_len: size_t,
         bytes_written: *mut size_t,
     ) -> i32; // returns 0 for success, 11 (EAGAIN/EWOULDBLOCK) for pending status
-    fn platform_shutdown_socket(
-        c_handle: *mut SocketCHandle,
-        waker_handle: *mut c_void,
-    ) -> i32; // returns 0 for success, 114 (EALREADY) for pending status
+    fn platform_shutdown_socket(c_handle: *mut SocketCHandle, waker_handle: *mut c_void) -> i32; // returns 0 for success, 114 (EALREADY) for pending status
     fn platform_close_socket(c_handle: *mut SocketCHandle);
     fn platform_free_socket(c_handle: *mut SocketCHandle);
 }
@@ -341,10 +338,7 @@ pub fn write_socket(
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
-pub fn shutdown_socket(
-    c_socket: &SocketCHandleWrapper,
-    waker: WakerHandle,
-) -> io::Result<()> {
+pub fn shutdown_socket(c_socket: &SocketCHandleWrapper, waker: WakerHandle) -> io::Result<()> {
     #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     {
         let c_socket = c_socket.0.as_ptr();
@@ -353,10 +347,7 @@ pub fn shutdown_socket(
         let waker = waker as *mut c_void;
         unsafe {
             let r = platform_shutdown_socket(c_socket, waker);
-            platform_log(
-                LOG_TAG,
-                format!("platform_shutdown_socket returns {}", r),
-            );
+            platform_log(LOG_TAG, format!("platform_shutdown_socket returns {}", r));
             if r == 0 {
                 return Ok(());
             } else if r == libc::EALREADY {
@@ -364,7 +355,7 @@ pub fn shutdown_socket(
             } else {
                 return Err(io::Error::from(io::ErrorKind::Other));
             }
-        }            
+        }
     }
 
     #[cfg(not(any(target_arch = "arm", target_arch = "aarch64")))]

@@ -187,9 +187,13 @@ where
         }
 
         match wh.shutdown().await {
-            Ok(_) => {}
+            Ok(()) => {
+                platform_log(LOG_TAG, "write handle shutdown ok");
+            }
 
-            Err(_) => {}
+            Err(e) => {
+                platform_log(LOG_TAG, format!("write handle shutdown error {}", e));
+            }
         }
     });
 
