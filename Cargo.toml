@@ -1,6 +1,6 @@
 [package]
 name = "rust-rcs-core"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 description = "Core libraries that provide basic RCS capabilities (SIP, MSRP, etc.)"
 license = "Apache-2.0"
@@ -16,25 +16,25 @@ crate-type = ["rlib", "cdylib"]
 
 rust-strict-sdp = { version = "0.1" }
 
-async-compression = { version = "0.3", features = ["futures-io", "brotli", "deflate", "gzip"] }
-base64 = { version = "0.13" }
-cached = { version = "0.44" }
+async-compression = { version = "0.4", features = ["futures-io", "brotli", "deflate", "gzip"] }
+base64 = { version = "0.21" }
+cached = { version = "0.46" }
 chrono = { version = "0.4" }
-cookie = { version = "0.16" }
-data-encoding = { version = "2.3" }
+cookie = { version = "0.18" }
+data-encoding = { version = "2.5" }
 futures = { version = "0.3" }
-httparse = { version = "1.7" }
+httparse = { version = "1.8" }
 libc = { version = "0.2" }
 lzw = { version = "0.10" }
 md-5 = { version = "0.10" }
-quick-xml = { version = "0.23" }
+quick-xml = { version = "0.31" }
 rand = { version = "0.8" }
-ring = { version = "0.16" }
-rustls = { version = "0.20" }
-tokio = { version = "1.19", features = ["rt-multi-thread", "io-util", "io-std", "net", "time", "macros", "sync"] }
+ring = { version = "0.17" }
+rustls = { version = "0.22" }
+tokio = { version = "1.35", features = ["rt-multi-thread", "io-util", "io-std", "net", "time", "macros", "sync"] }
 tokio-stream = { version = "0.1" }
 tokio-util = { version = "0.7", features = ["compat"] }
-trust-dns-client = { version = "0.21", default-features = false }
-url = { version = "2.2" }
-uuid = { version = "1.1", features = ["v4"] }
-walkdir = { version = "2.3" }
+trust-dns-client = { version = "0.23", default-features = false }
+url = { version = "2.5" }
+uuid = { version = "1.6", features = ["v4"] }
+walkdir = { version = "2.4" }

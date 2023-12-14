@@ -25,14 +25,14 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, FixedOffset};
 
 use data_encoding::HEXUPPER;
 use futures::io::{AsyncBufRead, AsyncReadExt};
 
-use quick_xml::Reader;
-
 use quick_xml::events::Event;
+use quick_xml::reader::Reader;
 use ring::hmac;
 
 use tokio::sync::Semaphore;
@@ -390,109 +390,106 @@ async fn decode_ub_resp<'a>(
         if let Some(mut resp_stream) = resp_stream {
             let mut resp_data = Vec::new();
             if let Ok(_) = resp_stream.read_to_end(&mut resp_data).await {
-                platform_log(
-                    LOG_TAG,
-                    format!("ub resp.string = {:?}", std::str::from_utf8(&resp_data),),
-                );
+                if let Ok(resp_str) = std::str::from_utf8(&resp_data) {
+                    platform_log(LOG_TAG, format!("ub resp.string = {:?}", resp_str,));
 
-                let mut xml_reader = Reader::from_bytes(&resp_data);
-                let mut buf = Vec::new();
-                loop {
-                    match xml_reader.read_event(&mut buf) {
-                        Ok(Event::Start(ref e)) => {
-                            if e.name() == b"BootstrappingInfo" {
-                                let mut b_tid: Option<String> = None;
-                                let mut expiry: Option<DateTime<FixedOffset>> = None;
-                                let mut level = 1;
-                                loop {
-                                    match xml_reader.read_event(&mut buf) {
-                                        Ok(Event::Start(ref e)) => {
-                                            if e.name() == b"btid" {
-                                                let mut level = 1;
-                                                loop {
-                                                    match xml_reader.read_event(&mut buf) {
-                                                        Ok(Event::Text(e)) => {
-                                                            if level == 1 {
-                                                                if let Ok(t) = e
-                                                                    .unescape_and_decode(
-                                                                        &xml_reader,
-                                                                    )
-                                                                {
-                                                                    b_tid.replace(t);
-                                                                }
-                                                            }
-                                                        }
-                                                        Ok(Event::Start(_)) => level += 1,
-                                                        Ok(Event::End(_)) => {
-                                                            level -= 1;
-                                                            if level == 0 {
-                                                                break;
-                                                            }
-                                                        }
-                                                        _ => {}
-                                                    }
-                                                }
-                                                buf.clear();
-                                            } else if e.name() == b"lifetime" {
-                                                let mut level = 1;
-                                                loop {
-                                                    match xml_reader.read_event(&mut buf) {
-                                                        Ok(Event::Text(e)) => {
-                                                            if level == 1 {
-                                                                if let Ok(t) = e
-                                                                    .unescape_and_decode(
-                                                                        &xml_reader,
-                                                                    )
-                                                                {
-                                                                    if let Ok(lifetime) =
-                                                                        DateTime::parse_from_rfc3339(
-                                                                            &t,
-                                                                        )
-                                                                    {
-                                                                        expiry.replace(lifetime);
+                    let mut xml_reader = Reader::from_str(resp_str);
+                    let mut buf = Vec::new();
+                    loop {
+                        match xml_reader.read_event_into(&mut buf) {
+                            Ok(Event::Start(ref e)) => {
+                                if e.name().as_ref() == b"BootstrappingInfo" {
+                                    let mut b_tid: Option<String> = None;
+                                    let mut expiry: Option<DateTime<FixedOffset>> = None;
+                                    let mut level = 1;
+                                    loop {
+                                        match xml_reader.read_event_into(&mut buf) {
+                                            Ok(Event::Start(ref e)) => {
+                                                if e.name().as_ref() == b"btid" {
+                                                    let mut level = 1;
+                                                    loop {
+                                                        match xml_reader.read_event_into(&mut buf) {
+                                                            Ok(Event::Text(e)) => {
+                                                                if level == 1 {
+                                                                    if let Ok(t) = e.unescape() {
+                                                                        b_tid.replace(
+                                                                            t.into_owned(),
+                                                                        );
                                                                     }
                                                                 }
                                                             }
-                                                        }
-                                                        Ok(Event::Start(_)) => level += 1,
-                                                        Ok(Event::End(_)) => {
-                                                            level -= 1;
-                                                            if level == 0 {
-                                                                break;
+                                                            Ok(Event::Start(_)) => level += 1,
+                                                            Ok(Event::End(_)) => {
+                                                                level -= 1;
+                                                                if level == 0 {
+                                                                    break;
+                                                                }
                                                             }
+                                                            _ => {}
                                                         }
-                                                        _ => {}
                                                     }
+                                                    buf.clear();
+                                                } else if e.name().as_ref() == b"lifetime" {
+                                                    let mut level = 1;
+                                                    loop {
+                                                        match xml_reader.read_event_into(&mut buf) {
+                                                            Ok(Event::Text(e)) => {
+                                                                if level == 1 {
+                                                                    if let Ok(t) = e.unescape() {
+                                                                        if let Ok(lifetime) =
+                                                                            DateTime::parse_from_rfc3339(
+                                                                                &t,
+                                                                            )
+                                                                        {
+                                                                            expiry.replace(lifetime);
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                            Ok(Event::Start(_)) => level += 1,
+                                                            Ok(Event::End(_)) => {
+                                                                level -= 1;
+                                                                if level == 0 {
+                                                                    break;
+                                                                }
+                                                            }
+                                                            _ => {}
+                                                        }
+                                                    }
+                                                    buf.clear();
                                                 }
-                                                buf.clear();
                                             }
-                                        }
-                                        Ok(Event::End(ref e)) => {
-                                            level -= 1;
-                                            if level == 0 {
-                                                break;
+                                            Ok(Event::End(ref e)) => {
+                                                level -= 1;
+                                                if level == 0 {
+                                                    break;
+                                                }
                                             }
+                                            Ok(Event::Eof) => break,
+                                            _ => {}
                                         }
-                                        Ok(Event::Eof) => break,
-                                        _ => {}
                                     }
-                                }
 
-                                buf.clear();
+                                    buf.clear();
 
-                                if let (Some(b_tid), Some(expiry)) = (b_tid, expiry) {
-                                    let expiry = SystemTime::UNIX_EPOCH
-                                        + std::time::Duration::from_secs(expiry.timestamp() as u64);
-                                    if let Ok(timeout) = expiry.duration_since(SystemTime::now()) {
-                                        let expiry = std::time::Instant::now() + timeout;
-                                        let expiry = Instant::from_std(expiry);
-                                        return UbResult::Bootstrapped(b_tid, expiry);
+                                    if let (Some(b_tid), Some(expiry)) = (b_tid, expiry) {
+                                        let expiry = SystemTime::UNIX_EPOCH
+                                            + std::time::Duration::from_secs(
+                                                expiry.timestamp() as u64
+                                            );
+                                        if let Ok(timeout) =
+                                            expiry.duration_since(SystemTime::now())
+                                        {
+                                            let expiry = std::time::Instant::now() + timeout;
+                                            let expiry = Instant::from_std(expiry);
+                                            return UbResult::Bootstrapped(b_tid, expiry);
+                                        }
                                     }
                                 }
                             }
+                            Ok(Event::Eof) => break,
+                            _ => {}
                         }
-                        Ok(Event::Eof) => break,
-                        _ => {}
                     }
                 }
             }
@@ -561,15 +558,9 @@ async fn decode_ub_resp<'a>(
                                             )
                                         {
                                             authorization.extend_from_slice(b",auts=\"");
-                                            let mut buf = Vec::new();
-                                            buf.resize(auts.len() * 4 / 3 + 4, 0);
-                                            let consumed = base64::encode_config_slice(
-                                                &auts,
-                                                base64::STANDARD,
-                                                &mut buf,
-                                            );
-                                            buf.truncate(consumed);
-                                            authorization.append(&mut buf);
+                                            let encoded = general_purpose::STANDARD.encode(&auts);
+                                            let mut encoded = Vec::from(encoded);
+                                            authorization.append(&mut encoded);
                                             authorization.extend_from_slice(b"\"");
                                             return UbResult::Auts(authorization);
                                         }
@@ -611,14 +602,12 @@ impl BootstrappedContext {
         let ks_naf_hex = HEXUPPER.encode(&ks_naf);
         platform_log(LOG_TAG, format!("ks_naf_hex: {}", &ks_naf_hex));
 
-        let mut buf = Vec::new();
-        buf.resize(ks_naf.len() * 4 / 3 + 4, 0);
-        let consumed = base64::encode_config_slice(&ks_naf, base64::STANDARD, &mut buf);
-        buf.truncate(consumed);
+        let encoded = general_purpose::STANDARD.encode(&ks_naf);
+        let encoded = Vec::from(encoded);
 
         Ok(GbaCredential {
             username: self.b_tid.as_bytes().to_vec(),
-            password: buf,
+            password: encoded,
         })
     }
 

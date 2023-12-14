@@ -139,7 +139,7 @@ impl DnsClient {
                                                                     {
                                                                         successful = true;
 
-                                                                        let addr = IpAddr::V6(addr);
+                                                                        let addr = IpAddr::V6(addr.0);
                                                                         let ttl = r.ttl();
 
                                                                         if ttl > 0 {
@@ -182,7 +182,7 @@ impl DnsClient {
                                                                     {
                                                                         successful = true;
 
-                                                                        let addr = IpAddr::V4(addr);
+                                                                        let addr = IpAddr::V4(addr.0);
                                                                         let ttl = r.ttl();
 
                                                                         if ttl > 0 {

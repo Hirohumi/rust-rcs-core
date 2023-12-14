@@ -25,7 +25,8 @@ use std::{
     io::{Read, Write},
 };
 
-use rustls::{ClientConfig, ClientConnection, ServerName, Stream};
+use rustls::pki_types::ServerName;
+use rustls::{ClientConfig, ClientConnection, Stream};
 
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
@@ -62,7 +63,7 @@ impl ClientStream {
         server_name: &str,
     ) -> Result<ClientStream> {
         match ServerName::try_from(server_name) {
-            Ok(name) => match ClientConnection::new(config, name) {
+            Ok(name) => match ClientConnection::new(config, name.to_owned()) {
                 Ok(client) => Ok(ClientStream::Tokio(TokioStream::Tls(
                     client,
                     stream,
@@ -121,7 +122,7 @@ impl ClientStream {
         server_name: &str,
     ) -> Result<ClientStream> {
         match ServerName::try_from(server_name) {
-            Ok(name) => match ClientConnection::new(config, name) {
+            Ok(name) => match ClientConnection::new(config, name.to_owned()) {
                 Ok(client) => match TcpStream::connect((ip, port)).await {
                     Ok(stream) => Ok(ClientStream::Tokio(TokioStream::Tls(
                         client,
