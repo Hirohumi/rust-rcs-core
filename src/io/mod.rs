@@ -15,7 +15,9 @@
 pub mod async_io;
 pub mod network;
 
-use std::io::Read;
+use std::{io::Read, pin::Pin, task::Poll};
+
+use futures::AsyncRead;
 
 pub trait Serializable {
     fn estimated_size(&self) -> usize;
@@ -78,5 +80,48 @@ impl Read for DynamicChain<'_> {
             }
         }
         Ok(i)
+    }
+}
+
+pub struct ProgressReportingReader<T> {
+    inner: T,
+    read: usize,
+    callback: Box<dyn Fn(usize) + Send + Sync>,
+}
+
+impl<T> ProgressReportingReader<T> {
+    pub fn new<C>(reader: T, callback: C) -> ProgressReportingReader<T>
+    where
+        C: Fn(usize) + Send + Sync + 'static,
+    {
+        ProgressReportingReader {
+            inner: reader,
+            read: 0,
+            callback: Box::new(callback),
+        }
+    }
+}
+
+impl<T> AsyncRead for ProgressReportingReader<T>
+where
+    T: AsyncRead + Send + Unpin,
+{
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<std::io::Result<usize>> {
+        let mut r = self.get_mut();
+        match Pin::new(&mut r.inner).poll_read(cx, buf) {
+            Poll::Ready(Ok(size)) => {
+                r.read += size;
+                (r.callback)(r.read);
+                Poll::Ready(Ok(size))
+            }
+
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+
+            Poll::Pending => Poll::Pending,
+        }
     }
 }

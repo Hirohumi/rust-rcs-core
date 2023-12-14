@@ -362,7 +362,7 @@ async fn send_ub_message(
     req.headers
         .push(Header::new(b"Authorization", authorization));
 
-    match connection.send(req).await {
+    match connection.send(req, |_| {}).await {
         Ok((resp, resp_stream)) => Ok((resp, resp_stream)),
 
         Err(_) => Err(ErrorKind::Http),

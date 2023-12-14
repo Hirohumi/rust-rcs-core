@@ -64,6 +64,7 @@ use crate::internet::Header;
 use crate::io::network::stream;
 use crate::io::network::stream::ClientStream;
 use crate::io::DynamicChain;
+use crate::io::ProgressReportingReader;
 use crate::io::Serializable;
 
 use request::Request;
@@ -95,6 +96,7 @@ fn setup_idle_timeout(
                 Arc<HttpConnection>,
                 mpsc::Sender<(
                     Request,
+                    mpsc::Sender<usize>,
                     oneshot::Sender<
                         Result<(Response, Option<mpsc::Receiver<io::Result<Vec<u8>>>>)>,
                     >,
@@ -157,6 +159,7 @@ impl HttpClient {
                     Arc<HttpConnection>,
                     mpsc::Sender<(
                         Request,
+                        mpsc::Sender<usize>,
                         oneshot::Sender<
                             Result<(Response, Option<mpsc::Receiver<io::Result<Vec<u8>>>>)>,
                         >,
@@ -394,6 +397,7 @@ impl HttpClient {
                     Arc<HttpConnection>,
                     mpsc::Sender<(
                         Request,
+                        mpsc::Sender<usize>,
                         oneshot::Sender<
                             Result<(Response, Option<mpsc::Receiver<io::Result<Vec<u8>>>>)>,
                         >,
@@ -668,6 +672,7 @@ fn on_transaction_complete(
                 Arc<HttpConnection>,
                 mpsc::Sender<(
                     Request,
+                    mpsc::Sender<usize>,
                     oneshot::Sender<
                         Result<(Response, Option<mpsc::Receiver<io::Result<Vec<u8>>>>)>,
                     >,
@@ -714,6 +719,7 @@ fn setup_http_connection(
                 Arc<HttpConnection>,
                 mpsc::Sender<(
                     Request,
+                    mpsc::Sender<usize>,
                     oneshot::Sender<
                         Result<(Response, Option<mpsc::Receiver<io::Result<Vec<u8>>>>)>,
                     >,
@@ -725,6 +731,7 @@ fn setup_http_connection(
     stream: ClientStream,
 ) -> mpsc::Sender<(
     Request,
+    mpsc::Sender<usize>,
     oneshot::Sender<Result<(Response, Option<mpsc::Receiver<io::Result<Vec<u8>>>>)>>,
 )> {
     let debug_name_1 = String::from(&conn.debug_name);
@@ -828,13 +835,14 @@ fn setup_http_connection(
 
     let (req_tx, mut req_rx) = mpsc::channel::<(
         Request,
+        mpsc::Sender<usize>,
         oneshot::Sender<Result<(Response, Option<mpsc::Receiver<io::Result<Vec<u8>>>>)>>,
     )>(MAX_CONCURRENT_REQUEST_IN_CONNECTIONS);
 
     tokio::spawn(async move {
         'next: loop {
             match req_rx.recv().await {
-                Some((request, resp_tx)) => {
+                Some((request, prog_tx, resp_tx)) => {
                     platform_log(
                         LOG_TAG,
                         format!(
@@ -900,6 +908,14 @@ fn setup_http_connection(
 
                         loop {
                             if let Ok(reader) = body.reader() {
+                                let reader =
+                                    ProgressReportingReader::new(reader, move |read| match prog_tx
+                                        .blocking_send(read)
+                                    {
+                                        Ok(()) => {}
+                                        Err(e) => {}
+                                    });
+
                                 let mut reader = reader.compat();
                                 match copy(&mut reader, &mut wh).await {
                                     Ok(i) => {
@@ -1004,6 +1020,7 @@ pub struct HttpConnectionHandle {
     cipher_id: Option<(u8, u8)>,
     tx: mpsc::Sender<(
         Request,
+        mpsc::Sender<usize>,
         oneshot::Sender<Result<(Response, Option<mpsc::Receiver<io::Result<Vec<u8>>>>)>>,
     )>,
 }
@@ -1013,10 +1030,15 @@ impl HttpConnectionHandle {
         self.cipher_id
     }
 
-    pub async fn send(
+    pub async fn send<F>(
         &self,
         mut request: Request,
-    ) -> Result<(Response, Option<Box<dyn AsyncBufRead + Send + Unpin>>)> {
+        io_callback: F,
+    ) -> Result<(Response, Option<Box<dyn AsyncBufRead + Send + Unpin>>)>
+    where
+        F: Fn(usize) + Send + Sync + 'static,
+    {
+        let (prog_tx, mut prog_rx) = mpsc::channel(1);
         let (resp_tx, resp_rx) = oneshot::channel();
 
         if request.body.is_none() {
@@ -1025,7 +1047,13 @@ impl HttpConnectionHandle {
             }
         }
 
-        match self.tx.send((request, resp_tx)).await {
+        tokio::spawn(async move {
+            while let Some(written) = prog_rx.recv().await {
+                io_callback(written);
+            }
+        });
+
+        match self.tx.send((request, prog_tx, resp_tx)).await {
             Ok(()) => match resp_rx.await {
                 Ok(result) => {
                     let (resp, data_rx) = result?;
