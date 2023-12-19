@@ -12,20 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::ffi::CString;
-
-use libc::c_char;
-
-#[cfg(all(feature = "android", target_os = "android"))]
-pub mod android;
-pub mod r#async;
-pub mod icc;
-pub mod log;
-pub mod net_ctrl;
-#[cfg(all(feature = "ohos", target_os = "ohos"))]
-pub mod ohos;
-
-#[no_mangle]
-pub unsafe extern "C" fn librust_free_cstring(cstr: *mut c_char) {
-    _ = CString::from_raw(cstr);
-}
+pub mod sock;

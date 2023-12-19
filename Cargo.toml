@@ -4,6 +4,7 @@ version = "0.2.3"
 edition = "2021"
 description = "Core libraries that provide basic RCS capabilities (SIP, MSRP, etc.)"
 license = "Apache-2.0"
+resolver = "2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,6 +12,11 @@ license = "Apache-2.0"
 
 name = "rust_rcs_core"
 crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+android = []
+ohos = []
 
 [dependencies]
 

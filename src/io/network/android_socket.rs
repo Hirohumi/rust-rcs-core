@@ -9,14 +9,15 @@ use futures::Future;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 use crate::ffi::{
-    log::platform_log,
-    r#async::WakerHandle,
-    sock::{
+    android::sock::{
         cipher_suite_get_yy, cipher_suite_get_zz, close_socket, create_socket, get_socket_info,
         get_socket_local_address, get_socket_local_port, get_socket_session_cipher_suite,
-        read_socket, shutdown_socket, socket_connect, socket_finish_connect,
-        socket_finish_handshake, socket_start_handshake, write_socket, SocketCHandleWrapper,
+        read_socket, shutdown_socket, socket_bind, socket_configure_tls, socket_connect,
+        socket_finish_connect, socket_finish_handshake, socket_start_handshake, write_socket,
+        SocketCHandleWrapper,
     },
+    log::platform_log,
+    r#async::WakerHandle,
 };
 
 const LOG_TAG: &str = "socket";
@@ -26,9 +27,19 @@ pub struct AndroidTcpStream {
 }
 
 impl AndroidTcpStream {
-    pub fn create(tls: bool, host_name: &str) -> io::Result<AndroidTcpStream> {
-        let socket = create_socket(tls, host_name)?;
+    pub fn create() -> io::Result<AndroidTcpStream> {
+        let socket = create_socket()?;
         Ok(AndroidTcpStream { socket })
+    }
+
+    pub fn bind(&self, ip: &str, port: u16) -> io::Result<()> {
+        socket_bind(&self.socket, ip, port)
+    }
+
+    pub fn configure_tls(self, host_name: &str) -> io::Result<AndroidTcpStream> {
+        platform_log(LOG_TAG, "configure_tls()");
+        socket_configure_tls(&self.socket, host_name)?;
+        Ok(self)
     }
 
     pub fn connect(self, ip: IpAddr, port: u16) -> io::Result<ConnectTask> {
@@ -55,6 +66,18 @@ impl AndroidTcpStream {
                 _ => Poll::Ready(Err(e)),
             },
         }
+    }
+
+    pub fn get_local_addr(&self) -> Result<(String, u16), ()> {
+        if let Some(sock_info) = get_socket_info(&self.socket) {
+            if let Some(l_addr) = get_socket_local_address(&sock_info) {
+                let l_port = get_socket_local_port(&sock_info);
+                if l_port > 0 {
+                    return Ok((format!("{}", l_addr), l_port)); // to-do: support ipv6
+                }
+            }
+        }
+        Err(())
     }
 
     pub fn get_local_address(&self) -> Result<String, ()> {

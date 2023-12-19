@@ -14,10 +14,16 @@
 
 extern crate libc;
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+))]
 use libc::{c_int, c_void, size_t};
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+))]
 extern "C" {
     fn platform_icc_open_channel(aid_bytes: *const u8, aid_size: size_t) -> c_int;
     fn platform_icc_exchange_apdu(
@@ -39,7 +45,10 @@ pub struct IccChannel {
 }
 
 impl IccChannel {
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    ))]
     pub fn new(aid_bytes: &[u8]) -> Option<IccChannel> {
         unsafe {
             let channel = platform_icc_open_channel(aid_bytes.as_ptr(), aid_bytes.len());
@@ -51,12 +60,18 @@ impl IccChannel {
         }
     }
 
-    #[cfg(not(any(target_arch = "arm", target_arch = "aarch64")))]
+    #[cfg(not(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    )))]
     pub fn new(aid_bytes: &[u8]) -> Option<IccChannel> {
         None
     }
 
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    ))]
     pub fn icc_exchange_apdu(
         &self,
         cla: u8,
@@ -96,7 +111,10 @@ impl IccChannel {
         }
     }
 
-    #[cfg(not(any(target_arch = "arm", target_arch = "aarch64")))]
+    #[cfg(not(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    )))]
     pub fn icc_exchange_apdu(
         &self,
         cla: u8,
@@ -112,7 +130,10 @@ impl IccChannel {
 
 impl Drop for IccChannel {
     fn drop(&mut self) {
-        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+        #[cfg(any(
+            all(feature = "android", target_os = "android"),
+            all(feature = "ohos", target_os = "ohos")
+        ))]
         unsafe {
             platform_icc_close_channel(self.channel)
         }

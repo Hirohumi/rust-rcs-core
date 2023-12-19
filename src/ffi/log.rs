@@ -18,7 +18,10 @@ use std::ffi::CString;
 
 use libc::c_char;
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+))]
 extern "C" {
     fn platform_log_impl(tag: *const c_char, message: *const c_char);
 }
@@ -28,7 +31,10 @@ pub fn platform_log<M>(tag: &str, message: M)
 where
     M: AsRef<str>,
 {
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    ))]
     if let (Ok(tag), Ok(message)) = (CString::new(tag), CString::new(message.as_ref())) {
         let c_tag = (&tag).as_ptr();
         let c_message = (&message).as_ptr();
@@ -36,7 +42,10 @@ where
             platform_log_impl(c_tag, c_message);
         }
     }
-    #[cfg(not(any(target_arch = "arm", target_arch = "aarch64")))]
+    #[cfg(not(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    )))]
     println!("{}:   {}", tag, message.as_ref());
 }
 

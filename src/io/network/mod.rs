@@ -13,5 +13,5 @@
 // limitations under the License.
 
 pub mod android_socket;
-pub mod sock;
+pub mod ohos_socket;
 pub mod stream;

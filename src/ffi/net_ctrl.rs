@@ -20,14 +20,20 @@ use std::{
     ptr::NonNull,
 };
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+))]
 use libc::c_char;
 
 pub struct NetworkRequestCallbackWrapper {
     callback: Option<Box<dyn FnOnce(bool) + Send + Sync + 'static>>,
 }
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+))]
 extern "C" fn network_activation_callback(ptr: *mut c_void, activated: bool) {
     let data = ptr as *mut NetworkRequestCallbackWrapper;
 
@@ -50,9 +56,15 @@ pub struct NetworkRequestCHandleWrapper(NonNull<NetworkRequestCHandle>);
 
 impl Drop for NetworkRequestCHandleWrapper {
     fn drop(&mut self) {
-        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+        #[cfg(any(
+            all(feature = "android", target_os = "android"),
+            all(feature = "ohos", target_os = "ohos")
+        ))]
         let c_handle = self.0.as_ptr();
-        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+        #[cfg(any(
+            all(feature = "android", target_os = "android"),
+            all(feature = "ohos", target_os = "ohos")
+        ))]
         unsafe {
             platform_drop_network_request(c_handle);
         }
@@ -71,9 +83,15 @@ pub struct NetworkInfoCHandleWrapper(NonNull<NetworkInfoCHandle>);
 
 impl Drop for NetworkInfoCHandleWrapper {
     fn drop(&mut self) {
-        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+        #[cfg(any(
+            all(feature = "android", target_os = "android"),
+            all(feature = "ohos", target_os = "ohos")
+        ))]
         let c_handle = self.0.as_ptr();
-        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+        #[cfg(any(
+            all(feature = "android", target_os = "android"),
+            all(feature = "ohos", target_os = "ohos")
+        ))]
         unsafe {
             platform_drop_network_info(c_handle);
         }
@@ -92,9 +110,15 @@ pub struct DnsInfoCHandleWrapper(NonNull<DnsInfoCHandle>);
 
 impl Drop for DnsInfoCHandleWrapper {
     fn drop(&mut self) {
-        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+        #[cfg(any(
+            all(feature = "android", target_os = "android"),
+            all(feature = "ohos", target_os = "ohos")
+        ))]
         let c_handle = self.0.as_ptr();
-        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+        #[cfg(any(
+            all(feature = "android", target_os = "android"),
+            all(feature = "ohos", target_os = "ohos")
+        ))]
         unsafe {
             platform_drop_dns_info(c_handle);
         }
@@ -103,7 +127,10 @@ impl Drop for DnsInfoCHandleWrapper {
 
 unsafe impl Send for DnsInfoCHandleWrapper {}
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+))]
 extern "C" {
     fn platform_activate_cellular_network(
         ptr: *mut c_void,
@@ -129,7 +156,10 @@ where
     let data = Box::into_raw(Box::new(wrapper));
     let ptr = data as *mut c_void;
 
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    ))]
     unsafe {
         if let Some(c_handle) =
             platform_activate_cellular_network(ptr, Some(network_activation_callback)).as_mut()
@@ -144,7 +174,10 @@ where
 }
 
 pub fn get_active_network_info() -> Option<NetworkInfoCHandleWrapper> {
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    ))]
     unsafe {
         if let Some(network_info) = platform_get_active_network_info().as_mut() {
             return Some(NetworkInfoCHandleWrapper(
@@ -158,18 +191,24 @@ pub fn get_active_network_info() -> Option<NetworkInfoCHandleWrapper> {
 
 pub fn get_network_type(network_info: &NetworkInfoCHandleWrapper) -> i32 {
     let network_info_c_handle = network_info.0.as_ptr();
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    ))]
     unsafe {
-        platform_get_network_type(network_info_c_handle)
+        return platform_get_network_type(network_info_c_handle);
     }
-    #[cfg(not(any(target_arch = "arm", target_arch = "aarch64")))]
+
     0
 }
 
 pub fn get_dns_info(network_info: &NetworkInfoCHandleWrapper) -> Option<DnsInfoCHandleWrapper> {
     let network_info_c_handle = network_info.0.as_ptr();
 
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    ))]
     unsafe {
         if let Some(dns_info) = platform_get_network_dns_info(network_info_c_handle).as_mut() {
             return Some(DnsInfoCHandleWrapper(NonNull::new(dns_info).unwrap()));
@@ -184,7 +223,10 @@ pub fn get_dns_servers(dns_info: &DnsInfoCHandleWrapper) -> Vec<SocketAddr> {
 
     let mut v = Vec::new();
 
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    ))]
     unsafe {
         while let Some(ptr) = platform_get_dns_server(dns_info_c_handle).as_ref() {
             let str = CStr::from_ptr(ptr).to_string_lossy().into_owned();
@@ -200,7 +242,10 @@ pub fn get_dns_servers(dns_info: &DnsInfoCHandleWrapper) -> Vec<SocketAddr> {
 pub fn get_active_dns_servers() -> Vec<SocketAddr> {
     let mut v = Vec::new();
 
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+    #[cfg(any(
+        all(feature = "android", target_os = "android"),
+        all(feature = "ohos", target_os = "ohos")
+    ))]
     unsafe {
         if let Some(network_info) = platform_get_active_network_info().as_mut() {
             if let Some(dns_info) = platform_get_network_dns_info(network_info).as_mut() {

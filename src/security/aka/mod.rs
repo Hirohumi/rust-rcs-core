@@ -14,6 +14,7 @@
 
 extern crate base64;
 
+use base64::{engine::general_purpose, Engine as _};
 use data_encoding::HEXUPPER;
 use libc::{c_int, c_void, size_t};
 
@@ -26,7 +27,10 @@ const PLATFORM_SUPPORT_DIRECT_AKA: bool = true;
 
 const LOG_TAG: &str = "aka";
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+))]
 extern "C" {
     fn platform_perform_aka(
         subscription_id: c_int,
@@ -36,7 +40,10 @@ extern "C" {
     ) -> *mut c_void;
 }
 
-#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+#[cfg(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+))]
 fn perform_aka(challenge_data: &[u8], subscription_id: i32) -> Result<Vec<u8>, ErrorKind> {
     let mut out_size: size_t = 0;
     let out_data;
@@ -65,7 +72,10 @@ fn perform_aka(challenge_data: &[u8], subscription_id: i32) -> Result<Vec<u8>, E
     }
 }
 
-#[cfg(not(any(target_arch = "arm", target_arch = "aarch64")))]
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+)))]
 fn perform_aka(challenge_data: &[u8], subscription_id: i32) -> Result<Vec<u8>, ErrorKind> {
     Err(ErrorKind::FFI)
 }
@@ -108,7 +118,7 @@ pub struct AkaChallenge {
 impl FromRawStr for AkaChallenge {
     type Err = ();
     fn from_raw_str(s: &[u8]) -> Result<AkaChallenge, ()> {
-        if let Ok(s) = base64::decode(s) {
+        if let Ok(s) = general_purpose::STANDARD.decode(s) {
             if s.len() >= 32 {
                 let mut aka_challenge = AkaChallenge {
                     rand: [0; 16],

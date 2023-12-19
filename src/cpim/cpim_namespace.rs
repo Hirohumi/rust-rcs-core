@@ -15,10 +15,7 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
-use crate::ffi::log::platform_log;
 use crate::internet::header::Header;
-
-const LOG_TAG: &str = "cpim";
 
 pub struct CPIMNamespace {
     registered_namespaces: BTreeMap<Vec<u8>, Vec<u8>>,
