@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(all(feature = "android", target_os = "android"))]
 pub mod android_socket;
+#[cfg(all(feature = "ohos", target_os = "ohos"))]
 pub mod ohos_socket;
 pub mod stream;

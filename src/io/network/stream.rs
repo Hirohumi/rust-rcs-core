@@ -32,18 +32,26 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{TcpSocket, TcpStream};
 
 use crate::ffi::log::platform_log;
+use crate::sip::sip_transport::SipTransportType;
 
+#[cfg(all(feature = "android", target_os = "android"))]
 use super::android_socket::AndroidTcpStream;
 
 const LOG_TAG: &str = "socket_stream";
 
+#[cfg(all(feature = "android", target_os = "android"))]
 pub enum AndroidStream {
     Tcp(AndroidTcpStream),
     Tls(AndroidTcpStream, TlsState),
 }
 
+#[cfg(all(feature = "ohos", target_os = "ohos"))]
 pub enum OhosStream {}
 
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+)))]
 pub enum TokioStream {
     Tcp(TcpStream),
     Tls(ClientConnection, TcpStream, TlsState),
@@ -77,7 +85,19 @@ impl ClientSocket {
         all(feature = "android", target_os = "android"),
         all(feature = "ohos", target_os = "ohos")
     )))]
-    pub fn configure_tls(self, host_name: &str) -> Result<ClientSocket> {}
+    pub fn configure_tls(
+        &self,
+        config: Arc<ClientConfig>,
+        server_name: &str,
+    ) -> Result<ClientConnection> {
+        match ServerName::try_from(server_name) {
+            Ok(name) => match ClientConnection::new(config, name.to_owned()) {
+                Ok(cc) => Ok(cc),
+                Err(_) => Err(ErrorKind::Rustls),
+            },
+            Err(_) => Err(ErrorKind::Webpki),
+        }
+    }
 
     #[cfg(all(feature = "android", target_os = "android"))]
     pub async fn connect(self, ip: IpAddr, port: u16) -> Result<ClientStream> {
@@ -97,44 +117,42 @@ impl ClientSocket {
         all(feature = "android", target_os = "android"),
         all(feature = "ohos", target_os = "ohos")
     )))]
-    pub async fn connect(self, ip: IpAddr, port: u16) -> Result<ClientStream> {}
+    pub async fn connect(
+        self,
+        ip: IpAddr,
+        port: u16,
+        cc: Option<ClientConnection>,
+    ) -> Result<ClientStream> {
+        match self.0.connect((ip, port).into()).await {
+            Ok(stream) => {
+                if let Some(cc) = cc {
+                    Ok(ClientStream(TokioStream::Tls(
+                        cc,
+                        stream,
+                        TlsState::Connected,
+                    )))
+                } else {
+                    Ok(ClientStream(TokioStream::Tcp(stream)))
+                }
+            }
+            Err(_) => todo!(),
+        }
+    }
 }
 
 #[cfg(all(feature = "android", target_os = "android"))]
-pub struct ClientStream(pub AndroidStream);
+pub struct ClientStream(AndroidStream);
 
 #[cfg(all(feature = "ohos", target_os = "ohos"))]
-pub struct ClientStream(pub OhosStream);
+pub struct ClientStream(OhosStream);
 
 #[cfg(not(any(
     all(feature = "android", target_os = "android"),
     all(feature = "ohos", target_os = "ohos")
 )))]
-pub struct ClientStream(pub TokioStream);
+pub struct ClientStream(TokioStream);
 
 impl ClientStream {
-    // pub async fn new_tokio_connected(stream: TcpStream) -> Result<ClientStream> {
-    //     Ok(ClientStream::Tokio(TokioStream::Tcp(stream)))
-    // }
-
-    // pub async fn new_tokio_ssl_connected(
-    //     config: Arc<ClientConfig>,
-    //     stream: TcpStream,
-    //     server_name: &str,
-    // ) -> Result<ClientStream> {
-    //     match ServerName::try_from(server_name) {
-    //         Ok(name) => match ClientConnection::new(config, name.to_owned()) {
-    //             Ok(client) => Ok(ClientStream::Tokio(TokioStream::Tls(
-    //                 client,
-    //                 stream,
-    //                 TlsState::Connected,
-    //             ))),
-    //             Err(_) => Err(ErrorKind::Rustls),
-    //         },
-    //         Err(_) => Err(ErrorKind::Webpki),
-    //     }
-    // }
-
     #[cfg(all(feature = "android", target_os = "android"))]
     pub async fn new_android(dst_ip: IpAddr, dst_port: u16) -> Result<ClientStream> {
         match AndroidTcpStream::create() {
@@ -196,7 +214,7 @@ impl ClientStream {
         match ServerName::try_from(server_name) {
             Ok(name) => match ClientConnection::new(config, name.to_owned()) {
                 Ok(client) => match TcpStream::connect((ip, port)).await {
-                    Ok(stream) => Ok(ClientStream::Tokio(TokioStream::Tls(
+                    Ok(stream) => Ok(ClientStream(TokioStream::Tls(
                         client,
                         stream,
                         TlsState::Connected,
@@ -206,6 +224,23 @@ impl ClientStream {
                 Err(_) => Err(ErrorKind::Rustls),
             },
             Err(_) => Err(ErrorKind::Webpki),
+        }
+    }
+
+    pub fn get_sip_transport_type(&self) -> SipTransportType {
+        #[cfg(all(feature = "android", target_os = "android"))]
+        match self.0 {
+            AndroidStream::Tcp(_) => SipTransportType::TCP,
+            AndroidStream::Tls(_, _) => SipTransportType::TLS,
+        }
+
+        #[cfg(not(any(
+            all(feature = "android", target_os = "android"),
+            all(feature = "ohos", target_os = "ohos")
+        )))]
+        match self.0 {
+            TokioStream::Tcp(_) => SipTransportType::TCP,
+            TokioStream::Tls(_, _, _) => SipTransportType::TLS,
         }
     }
 
@@ -259,22 +294,6 @@ pub enum TlsState {
     Negotiated(u8, u8),
     Shutdown,
 }
-
-// pub enum Handshaker {
-//     AndroidNative(AndroidHandshaker),
-//     Tokio(TokioHandshaker),
-// }
-
-// impl Future for Handshaker {
-//     type Output = Result<(ClientStream, Option<(u8, u8)>)>;
-
-//     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-//         match self.get_mut() {
-//             Handshaker::AndroidNative(task) => Pin::new(task).poll(cx),
-//             Handshaker::Tokio(task) => Pin::new(task).poll(cx),
-//         }
-//     }
-// }
 
 #[cfg(all(feature = "android", target_os = "android"))]
 pub struct Handshaker {
@@ -482,9 +501,9 @@ impl AsyncRead for ClientStream {
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        match self.get_mut() {
-            TokioStream::Tcp(ref mut stream) => Pin::new(stream).poll_read(cx, buf),
-            TokioStream::Tls(ref mut conn, ref mut stream, state) => match *state {
+        match &mut self.get_mut().0 {
+            TokioStream::Tcp(stream) => Pin::new(stream).poll_read(cx, buf),
+            TokioStream::Tls(conn, stream, state) => match *state {
                 TlsState::Connected | TlsState::Negotiated(_, _) => {
                     let mut stream = SyncTcpStream { stream, cx };
                     let mut tls_stream = Stream::new(conn, &mut stream);
@@ -548,7 +567,7 @@ impl AsyncWrite for ClientStream {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        match self.get_mut().0 {
+        match &mut self.get_mut().0 {
             TokioStream::Tcp(stream) => Pin::new(stream).poll_write(cx, buf),
             TokioStream::Tls(ref mut conn, ref mut stream, _) => {
                 let mut stream = SyncTcpStream { stream, cx };
@@ -566,9 +585,9 @@ impl AsyncWrite for ClientStream {
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        match self.get_mut().0 {
-            TokioStream::Tcp(ref mut stream) => Pin::new(stream).poll_flush(cx),
-            TokioStream::Tls(ref mut conn, ref mut stream, _) => {
+        match &mut self.get_mut().0 {
+            TokioStream::Tcp(stream) => Pin::new(stream).poll_flush(cx),
+            TokioStream::Tls(conn, stream, _) => {
                 let mut stream = SyncTcpStream { stream, cx };
                 let mut tls_stream = Stream::new(conn, &mut stream);
                 match tls_stream.flush() {
