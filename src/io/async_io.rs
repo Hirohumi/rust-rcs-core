@@ -25,7 +25,7 @@ use super::{BytesReader, DynamicChain};
 impl AsyncRead for BytesReader<'_> {
     fn poll_read(
         self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        _cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<std::io::Result<usize>> {
         let p = self.get_mut();
@@ -39,7 +39,7 @@ impl AsyncRead for BytesReader<'_> {
 impl AsyncRead for DynamicChain<'_> {
     fn poll_read(
         self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        _cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<std::io::Result<usize>> {
         let p = self.get_mut();

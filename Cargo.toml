@@ -13,11 +13,6 @@ resolver = "2"
 name = "rust_rcs_core"
 crate-type = ["rlib", "cdylib"]
 
-[features]
-default = []
-android = []
-ohos = []
-
 [dependencies]
 
 rust-strict-sdp = { version = "0.1" }
@@ -29,6 +24,7 @@ chrono = { version = "0.4" }
 cookie = { version = "0.18" }
 data-encoding = { version = "2.5" }
 futures = { version = "0.3" }
+hickory-client = { version = "0.24", default-features = false }
 httparse = { version = "1.8" }
 libc = { version = "0.2" }
 lzw = { version = "0.10" }
@@ -40,7 +36,11 @@ rustls = { version = "0.22" }
 tokio = { version = "1.35", features = ["rt-multi-thread", "io-util", "io-std", "net", "time", "macros", "sync"] }
 tokio-stream = { version = "0.1" }
 tokio-util = { version = "0.7", features = ["compat"] }
-trust-dns-client = { version = "0.23", default-features = false }
 url = { version = "2.5" }
 uuid = { version = "1.6", features = ["v4"] }
 walkdir = { version = "2.4" }
+
+[features]
+default = []
+android = []
+ohos = []

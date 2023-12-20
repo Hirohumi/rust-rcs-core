@@ -22,7 +22,6 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures::future::Future;
-use futures::stream::Stream;
 
 use httparse::{Response as ResponseParser, Status};
 
@@ -128,13 +127,6 @@ impl Future for HeaderPartDecoder<'_, '_> {
         }
     }
 }
-
-// impl Stream for HeaderPartDecoder<'_, '_> {
-//     type Item = Result<HeaderPartDecodeStatus>;
-//     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-//         Poll::Pending
-//     }
-// }
 
 pub enum ChunkDecodeResult {
     Part(Vec<u8>),

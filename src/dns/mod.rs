@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate hickory_client;
 extern crate tokio;
 extern crate tokio_stream;
-extern crate trust_dns_client;
 
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-use tokio::io::AsyncWriteExt;
 use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
@@ -30,9 +29,9 @@ use tokio::time::{Duration, Instant};
 
 use tokio_stream::wrappers::ReceiverStream;
 
-use trust_dns_client::client::{AsyncClient, ClientHandle};
-use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
-use trust_dns_client::udp::UdpClientStream;
+use hickory_client::client::{AsyncClient, ClientHandle as _};
+use hickory_client::rr::{DNSClass, Name, RData, RecordType};
+use hickory_client::udp::UdpClientStream;
 
 use crate::ffi::log::platform_log;
 use crate::util::raw_string::StrEq;

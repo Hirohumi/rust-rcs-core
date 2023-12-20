@@ -111,7 +111,7 @@ where
         cx: &mut std::task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<std::io::Result<usize>> {
-        let mut r = self.get_mut();
+        let r = self.get_mut();
         match Pin::new(&mut r.inner).poll_read(cx, buf) {
             Poll::Ready(Ok(size)) => {
                 r.read += size;

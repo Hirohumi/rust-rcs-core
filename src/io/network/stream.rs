@@ -18,17 +18,37 @@ extern crate tokio;
 use std::future::Future;
 use std::net::IpAddr;
 use std::pin::Pin;
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+)))]
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{
     fmt, io,
-    io::{Read, Write},
 };
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+)))]
+use std::io::{Read, Write};
 
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+)))]
 use rustls::pki_types::ServerName;
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+)))]
 use rustls::{ClientConfig, ClientConnection, Stream};
 
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+)))]
 use tokio::net::{TcpSocket, TcpStream};
 
 use crate::ffi::log::platform_log;
@@ -438,11 +458,19 @@ impl Future for Handshaker {
     }
 }
 
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+)))]
 struct SyncTcpStream<'a, 'b> {
     stream: &'a mut TcpStream,
     cx: &'a mut Context<'b>,
 }
 
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+)))]
 impl Read for SyncTcpStream<'_, '_> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let mut buf = ReadBuf::new(buf);
@@ -456,6 +484,10 @@ impl Read for SyncTcpStream<'_, '_> {
     }
 }
 
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", target_os = "ohos")
+)))]
 impl Write for SyncTcpStream<'_, '_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match Pin::new(&mut self.stream).poll_write(self.cx, buf) {
