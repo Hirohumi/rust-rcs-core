@@ -16,13 +16,13 @@ extern crate libc;
 
 #[cfg(any(
     all(feature = "android", target_os = "android"),
-    all(feature = "ohos", target_os = "ohos")
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
 ))]
 use libc::{c_int, c_void, size_t};
 
 #[cfg(any(
     all(feature = "android", target_os = "android"),
-    all(feature = "ohos", target_os = "ohos")
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
 ))]
 extern "C" {
     fn platform_icc_open_channel(aid_bytes: *const u8, aid_size: size_t) -> c_int;
@@ -47,7 +47,7 @@ pub struct IccChannel {
 impl IccChannel {
     #[cfg(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     ))]
     pub fn new(aid_bytes: &[u8]) -> Option<IccChannel> {
         unsafe {
@@ -62,7 +62,7 @@ impl IccChannel {
 
     #[cfg(not(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     )))]
     pub fn new(aid_bytes: &[u8]) -> Option<IccChannel> {
         None
@@ -70,7 +70,7 @@ impl IccChannel {
 
     #[cfg(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     ))]
     pub fn icc_exchange_apdu(
         &self,
@@ -113,7 +113,7 @@ impl IccChannel {
 
     #[cfg(not(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     )))]
     pub fn icc_exchange_apdu(
         &self,
@@ -132,7 +132,7 @@ impl Drop for IccChannel {
     fn drop(&mut self) {
         #[cfg(any(
             all(feature = "android", target_os = "android"),
-            all(feature = "ohos", target_os = "ohos")
+            all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
         ))]
         unsafe {
             platform_icc_close_channel(self.channel)

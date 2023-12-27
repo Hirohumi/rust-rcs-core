@@ -20,7 +20,7 @@ use libc::c_char;
 
 #[cfg(any(
     all(feature = "android", target_os = "android"),
-    all(feature = "ohos", target_os = "ohos")
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
 ))]
 extern "C" {
     fn platform_log_impl(tag: *const c_char, message: *const c_char);
@@ -33,7 +33,7 @@ where
 {
     #[cfg(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     ))]
     if let (Ok(tag), Ok(message)) = (CString::new(tag), CString::new(message.as_ref())) {
         let c_tag = (&tag).as_ptr();
@@ -44,7 +44,7 @@ where
     }
     #[cfg(not(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     )))]
     println!("{}:   {}", tag, message.as_ref());
 }

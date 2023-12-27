@@ -12,28 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(all(feature = "ohos", target_os = "ohos"))]
+#[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
 use std::ffi::{CStr, CString};
 use std::{io, ptr::NonNull};
 
 use libc::c_void;
-#[cfg(all(feature = "ohos", target_os = "ohos"))]
+#[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
 use libc::{c_char, size_t};
 
 use crate::ffi::{log::platform_log, r#async::WakerHandle};
 
 const LOG_TAG: &str = "ffi";
 
-#[cfg(all(feature = "ohos", target_os = "ohos"))]
+#[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
 extern "C" {
     fn platform_create_socket() -> *mut SocketCHandle;
     fn platform_socket_bind(
         c_handle: *mut SocketCHandle,
+        af: i32,
         local_ip: *const c_char,
         local_port: u16,
     ) -> i32;
     fn platform_socket_connect(
         c_handle: *mut SocketCHandle,
+        af: i32,
         remote_ip: *const c_char,
         remote_port: u16,
     ) -> i32;
@@ -70,9 +72,9 @@ pub struct SocketCHandleWrapper(NonNull<SocketCHandle>);
 
 impl Drop for SocketCHandleWrapper {
     fn drop(&mut self) {
-        #[cfg(all(feature = "ohos", target_os = "ohos"))]
+        #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
         let c_handle = self.0.as_ptr();
-        #[cfg(all(feature = "ohos", target_os = "ohos"))]
+        #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
         unsafe {
             platform_free_socket(c_handle);
         }
@@ -82,7 +84,7 @@ impl Drop for SocketCHandleWrapper {
 unsafe impl Send for SocketCHandleWrapper {}
 
 pub fn create_socket() -> io::Result<SocketCHandleWrapper> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     {
         unsafe {
             if let Some(c_handle) = platform_create_socket().as_mut() {
@@ -96,16 +98,17 @@ pub fn create_socket() -> io::Result<SocketCHandleWrapper> {
 
 pub fn socket_bind(
     c_socket: &SocketCHandleWrapper,
+    af: i32,
     local_ip: &str,
     local_port: u16,
 ) -> io::Result<()> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     {
         let c_socket = c_socket.0.as_ptr();
         let local_ip = CString::new(local_ip).unwrap();
         let local_ip = local_ip.as_ptr();
         unsafe {
-            let r = platform_socket_bind(c_socket, local_ip, local_port);
+            let r = platform_socket_bind(c_socket, af, local_ip, local_port);
             platform_log(LOG_TAG, format!("platform_socket_bind returns {}", r));
             if r == 0 {
                 return Ok(());
@@ -117,22 +120,23 @@ pub fn socket_bind(
         }
     }
 
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
+    #[cfg(not(all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))))]
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
 pub fn socket_connect(
     c_socket: &SocketCHandleWrapper,
+    af: i32,
     remote_ip: &str,
     remote_port: u16,
 ) -> io::Result<()> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     {
         let c_socket = c_socket.0.as_ptr();
         let remote_ip = CString::new(remote_ip).unwrap();
         let remote_ip = remote_ip.as_ptr();
         unsafe {
-            let r = platform_socket_connect(c_socket, remote_ip, remote_port);
+            let r = platform_socket_connect(c_socket, af, remote_ip, remote_port);
             platform_log(LOG_TAG, format!("platform_socket_connect returns {}", r));
             if r == 0 {
                 return Ok(());
@@ -144,7 +148,7 @@ pub fn socket_connect(
         }
     }
 
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
+    #[cfg(not(all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))))]
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
@@ -152,7 +156,7 @@ pub fn socket_finish_connect(
     c_socket: &SocketCHandleWrapper,
     waker: WakerHandle,
 ) -> io::Result<()> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     {
         let c_socket = c_socket.0.as_ptr();
         let waker = Box::new(waker);
@@ -174,59 +178,7 @@ pub fn socket_finish_connect(
         }
     }
 
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
-    Err(io::Error::from(io::ErrorKind::Unsupported))
-}
-
-pub fn socket_start_handshake(c_socket: &SocketCHandleWrapper) -> io::Result<()> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
-    {
-        let c_socket = c_socket.0.as_ptr();
-        unsafe {
-            let r = platform_socket_start_handshake(c_socket);
-            platform_log(
-                LOG_TAG,
-                format!("platform_socket_start_handshake returns {}", r),
-            );
-            if r == 0 {
-                return Ok(());
-            } else {
-                return Err(io::Error::from(io::ErrorKind::Other));
-            }
-        }
-    }
-
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
-    Err(io::Error::from(io::ErrorKind::Unsupported))
-}
-
-pub fn socket_finish_handshake(
-    c_socket: &SocketCHandleWrapper,
-    waker: WakerHandle,
-) -> io::Result<()> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
-    {
-        let c_socket = c_socket.0.as_ptr();
-        let waker = Box::new(waker);
-        let waker = Box::into_raw(waker);
-        let waker = waker as *mut c_void;
-        unsafe {
-            let r = platform_socket_finish_handshake(c_socket, waker);
-            platform_log(
-                LOG_TAG,
-                format!("platform_socket_finish_handshake returns {}", r),
-            );
-            if r == 0 {
-                return Ok(());
-            } else if r == libc::EALREADY {
-                return Err(io::Error::from(io::ErrorKind::WouldBlock));
-            } else {
-                return Err(io::Error::from(io::ErrorKind::Other));
-            }
-        }
-    }
-
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
+    #[cfg(not(all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))))]
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
@@ -235,7 +187,7 @@ pub fn read_socket(
     buffer: &mut [u8],
     waker: WakerHandle,
 ) -> io::Result<usize> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     {
         let c_socket = c_socket.0.as_ptr();
         let buffer_len = buffer.len();
@@ -263,7 +215,7 @@ pub fn read_socket(
         }
     }
 
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
+    #[cfg(not(all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))))]
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
@@ -272,7 +224,7 @@ pub fn write_socket(
     buffer: &[u8],
     waker: WakerHandle,
 ) -> io::Result<usize> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     {
         let c_socket = c_socket.0.as_ptr();
         let buffer_len = buffer.len();
@@ -300,12 +252,12 @@ pub fn write_socket(
         }
     }
 
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
+    #[cfg(not(all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))))]
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
 pub fn shutdown_socket(c_socket: &SocketCHandleWrapper, waker: WakerHandle) -> io::Result<()> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     {
         let c_socket = c_socket.0.as_ptr();
         let waker = Box::new(waker);
@@ -324,12 +276,12 @@ pub fn shutdown_socket(c_socket: &SocketCHandleWrapper, waker: WakerHandle) -> i
         }
     }
 
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
+    #[cfg(not(all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))))]
     Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
 pub fn close_socket(c_socket: &SocketCHandleWrapper) {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     {
         let c_socket = c_socket.0.as_ptr();
         unsafe {
@@ -338,7 +290,7 @@ pub fn close_socket(c_socket: &SocketCHandleWrapper) {
     }
 }
 
-#[cfg(all(feature = "ohos", target_os = "ohos"))]
+#[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
 extern "C" {
     fn platform_get_socket_info(socket_c_handle: *mut SocketCHandle) -> *mut SocketInfoCHandle;
     fn platform_get_socket_af(c_handle: *mut SocketInfoCHandle) -> i32;
@@ -357,9 +309,9 @@ pub struct SocketInfoCHandleWrapper(NonNull<SocketInfoCHandle>);
 
 impl Drop for SocketInfoCHandleWrapper {
     fn drop(&mut self) {
-        #[cfg(all(feature = "ohos", target_os = "ohos"))]
+        #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
         let c_handle = self.0.as_ptr();
-        #[cfg(all(feature = "ohos", target_os = "ohos"))]
+        #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
         unsafe {
             platform_free_socket_info(c_handle);
         }
@@ -369,9 +321,9 @@ impl Drop for SocketInfoCHandleWrapper {
 unsafe impl Send for SocketInfoCHandleWrapper {}
 
 pub fn get_socket_info(android_socket: &SocketCHandleWrapper) -> Option<SocketInfoCHandleWrapper> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     let android_socket = android_socket.0.as_ptr();
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     unsafe {
         if let Some(c_handle) = platform_get_socket_info(android_socket).as_mut() {
             return Some(SocketInfoCHandleWrapper(NonNull::new(c_handle).unwrap()));
@@ -382,21 +334,21 @@ pub fn get_socket_info(android_socket: &SocketCHandleWrapper) -> Option<SocketIn
 }
 
 pub fn get_socket_af(android_socket_info: &SocketInfoCHandleWrapper) -> i32 {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     let android_socket_info = android_socket_info.0.as_ptr();
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     unsafe {
         return platform_get_socket_af(android_socket_info);
     }
 
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
+    #[cfg(not(all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))))]
     0
 }
 
 pub fn get_socket_local_address(android_socket_info: &SocketInfoCHandleWrapper) -> Option<String> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     let android_socket_info = android_socket_info.0.as_ptr();
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     unsafe {
         if let Some(ptr) = platform_get_socket_l_addr(android_socket_info).as_ref() {
             let str = CStr::from_ptr(ptr).to_string_lossy().into_owned();
@@ -408,83 +360,13 @@ pub fn get_socket_local_address(android_socket_info: &SocketInfoCHandleWrapper) 
 }
 
 pub fn get_socket_local_port(android_socket_info: &SocketInfoCHandleWrapper) -> u16 {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     let android_socket_info = android_socket_info.0.as_ptr();
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
+    #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
     unsafe {
         return platform_get_socket_l_port(android_socket_info);
     }
 
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
-    0
-}
-
-#[cfg(all(feature = "ohos", target_os = "ohos"))]
-extern "C" {
-    fn platform_get_socket_session_cipher_suite(
-        socket_c_handle: *mut SocketCHandle,
-    ) -> *mut CipherSuiteCHandle;
-    fn platform_cipher_suite_get_yy(c_handle: *mut CipherSuiteCHandle) -> u8;
-    fn platform_cipher_suite_get_zz(c_handle: *mut CipherSuiteCHandle) -> u8;
-    fn platform_free_cipher_suite(c_handle: *mut CipherSuiteCHandle);
-}
-
-#[repr(C)]
-pub struct CipherSuiteCHandle {
-    _data: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
-
-pub struct CipherSuiteCHandleWrapper(NonNull<CipherSuiteCHandle>);
-
-impl Drop for CipherSuiteCHandleWrapper {
-    fn drop(&mut self) {
-        #[cfg(all(feature = "ohos", target_os = "ohos"))]
-        let c_handle = self.0.as_ptr();
-        #[cfg(all(feature = "ohos", target_os = "ohos"))]
-        unsafe {
-            platform_free_cipher_suite(c_handle);
-        }
-    }
-}
-
-unsafe impl Send for CipherSuiteCHandleWrapper {}
-
-pub fn get_socket_session_cipher_suite(
-    android_socket: &SocketCHandleWrapper,
-) -> Option<CipherSuiteCHandleWrapper> {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
-    let android_socket = android_socket.0.as_ptr();
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
-    unsafe {
-        if let Some(c_handle) = platform_get_socket_session_cipher_suite(android_socket).as_mut() {
-            return Some(CipherSuiteCHandleWrapper(NonNull::new(c_handle).unwrap()));
-        }
-    }
-
-    None
-}
-
-pub fn cipher_suite_get_yy(c_cipher_suite: &CipherSuiteCHandleWrapper) -> u8 {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
-    let c_cipher_suite = c_cipher_suite.0.as_ptr();
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
-    unsafe {
-        return platform_cipher_suite_get_yy(c_cipher_suite);
-    }
-
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
-    0
-}
-
-pub fn cipher_suite_get_zz(c_cipher_suite: &CipherSuiteCHandleWrapper) -> u8 {
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
-    let c_cipher_suite = c_cipher_suite.0.as_ptr();
-    #[cfg(all(feature = "ohos", target_os = "ohos"))]
-    unsafe {
-        return platform_cipher_suite_get_zz(c_cipher_suite);
-    }
-
-    #[cfg(not(all(feature = "ohos", target_os = "ohos")))]
+    #[cfg(not(all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))))]
     0
 }

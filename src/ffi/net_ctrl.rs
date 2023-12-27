@@ -22,7 +22,7 @@ use std::{
 
 #[cfg(any(
     all(feature = "android", target_os = "android"),
-    all(feature = "ohos", target_os = "ohos")
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
 ))]
 use libc::c_char;
 
@@ -32,7 +32,7 @@ pub struct NetworkRequestCallbackWrapper {
 
 #[cfg(any(
     all(feature = "android", target_os = "android"),
-    all(feature = "ohos", target_os = "ohos")
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
 ))]
 extern "C" fn network_activation_callback(ptr: *mut c_void, activated: bool) {
     let data = ptr as *mut NetworkRequestCallbackWrapper;
@@ -58,12 +58,12 @@ impl Drop for NetworkRequestCHandleWrapper {
     fn drop(&mut self) {
         #[cfg(any(
             all(feature = "android", target_os = "android"),
-            all(feature = "ohos", target_os = "ohos")
+            all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
         ))]
         let c_handle = self.0.as_ptr();
         #[cfg(any(
             all(feature = "android", target_os = "android"),
-            all(feature = "ohos", target_os = "ohos")
+            all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
         ))]
         unsafe {
             platform_drop_network_request(c_handle);
@@ -85,12 +85,12 @@ impl Drop for NetworkInfoCHandleWrapper {
     fn drop(&mut self) {
         #[cfg(any(
             all(feature = "android", target_os = "android"),
-            all(feature = "ohos", target_os = "ohos")
+            all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
         ))]
         let c_handle = self.0.as_ptr();
         #[cfg(any(
             all(feature = "android", target_os = "android"),
-            all(feature = "ohos", target_os = "ohos")
+            all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
         ))]
         unsafe {
             platform_drop_network_info(c_handle);
@@ -112,12 +112,12 @@ impl Drop for DnsInfoCHandleWrapper {
     fn drop(&mut self) {
         #[cfg(any(
             all(feature = "android", target_os = "android"),
-            all(feature = "ohos", target_os = "ohos")
+            all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
         ))]
         let c_handle = self.0.as_ptr();
         #[cfg(any(
             all(feature = "android", target_os = "android"),
-            all(feature = "ohos", target_os = "ohos")
+            all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
         ))]
         unsafe {
             platform_drop_dns_info(c_handle);
@@ -129,7 +129,7 @@ unsafe impl Send for DnsInfoCHandleWrapper {}
 
 #[cfg(any(
     all(feature = "android", target_os = "android"),
-    all(feature = "ohos", target_os = "ohos")
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
 ))]
 extern "C" {
     fn platform_activate_cellular_network(
@@ -158,7 +158,7 @@ where
 
     #[cfg(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     ))]
     unsafe {
         if let Some(c_handle) =
@@ -176,7 +176,7 @@ where
 pub fn get_active_network_info() -> Option<NetworkInfoCHandleWrapper> {
     #[cfg(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     ))]
     unsafe {
         if let Some(network_info) = platform_get_active_network_info().as_mut() {
@@ -193,7 +193,7 @@ pub fn get_network_type(network_info: &NetworkInfoCHandleWrapper) -> i32 {
     let network_info_c_handle = network_info.0.as_ptr();
     #[cfg(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     ))]
     unsafe {
         return platform_get_network_type(network_info_c_handle);
@@ -207,7 +207,7 @@ pub fn get_dns_info(network_info: &NetworkInfoCHandleWrapper) -> Option<DnsInfoC
 
     #[cfg(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     ))]
     unsafe {
         if let Some(dns_info) = platform_get_network_dns_info(network_info_c_handle).as_mut() {
@@ -225,7 +225,7 @@ pub fn get_dns_servers(dns_info: &DnsInfoCHandleWrapper) -> Vec<SocketAddr> {
 
     #[cfg(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     ))]
     unsafe {
         while let Some(ptr) = platform_get_dns_server(dns_info_c_handle).as_ref() {
@@ -244,7 +244,7 @@ pub fn get_active_dns_servers() -> Vec<SocketAddr> {
 
     #[cfg(any(
         all(feature = "android", target_os = "android"),
-        all(feature = "ohos", target_os = "ohos")
+        all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
     ))]
     unsafe {
         if let Some(network_info) = platform_get_active_network_info().as_mut() {

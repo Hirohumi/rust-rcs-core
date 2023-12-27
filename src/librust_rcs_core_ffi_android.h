@@ -1,12 +1,28 @@
+/*
+ * Copyright 2023 宋昊文
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include <stddef.h>
 #include <stdint.h>
 
 struct platform_socket;
 
 struct platform_socket *platform_create_socket();
-int platform_socket_bind(const char *l_addr, u_int16_t l_port);
+int platform_socket_bind(struct platform_socket *sock, const char *l_addr, uint16_t l_port);
 int platform_socket_configure_tls(struct platform_socket *sock, const char *host_name);
-int platform_socket_connect(struct platform_socket *sock, const char *r_addr, u_int16_t r_port);
+int platform_socket_connect(struct platform_socket *sock, const char *r_addr, uint16_t r_port);
 int platform_socket_finish_connect(struct platform_socket *sock, struct rust_async_waker *waker);
 int platform_socket_start_handshake(struct platform_socket *sock);
 int platform_socket_finish_handshake(struct platform_socket *sock, struct rust_async_waker *waker);

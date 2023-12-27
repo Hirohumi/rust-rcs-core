@@ -22,7 +22,7 @@ pub mod r#async;
 pub mod icc;
 pub mod log;
 pub mod net_ctrl;
-#[cfg(all(feature = "ohos", target_os = "ohos"))]
+#[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
 pub mod ohos;
 
 #[no_mangle]

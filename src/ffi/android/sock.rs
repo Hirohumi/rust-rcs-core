@@ -32,8 +32,10 @@ extern "C" {
         local_ip: *const c_char,
         local_port: u16,
     ) -> i32;
-    fn platform_socket_configure_tls(c_handle: *mut SocketCHandle, host_name: *const c_char)
-        -> i32;
+    fn platform_socket_configure_tls(
+        c_handle: *mut SocketCHandle,
+        host_name: *const c_char
+    ) -> i32;
     fn platform_socket_connect(
         c_handle: *mut SocketCHandle,
         remote_ip: *const c_char,

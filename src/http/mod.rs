@@ -468,9 +468,16 @@ impl HttpClient {
             Err(e) => Err(ErrorKind::Stream(e)),
         }
 
+        #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
+        match ClientStream::new_ohos(ip, port).await {
+            Ok(client_stream) => Ok(client_stream),
+
+            Err(e) => Err(ErrorKind::Stream(e)),
+        }
+
         #[cfg(not(any(
             all(feature = "android", target_os = "android"),
-            all(feature = "ohos", target_os = "ohos")
+            all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
         )))]
         match ClientStream::new_tokio(ip, port).await {
             Ok(client_stream) => Ok(client_stream),
@@ -507,9 +514,31 @@ impl HttpClient {
             }
         }
 
+        #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
+        match ClientStream::new_ohos_ssl(client_config, ip, port, server_name).await {
+            Ok(client_stream) => match client_stream.do_handshake().await {
+                Ok((client_stream, cipher_id)) => {
+                    platform_log(LOG_TAG, format!("ssl do_handshake success"));
+                    Ok((client_stream, cipher_id))
+                }
+                Err(e) => {
+                    platform_log(
+                        LOG_TAG,
+                        format!("ssl do_handshake failed with error {:?}", e),
+                    );
+                    Err(ErrorKind::Stream(e))
+                }
+            },
+
+            Err(e) => {
+                platform_log(LOG_TAG, format!("ssl new failed with error {:?}", e));
+                Err(ErrorKind::Stream(e))
+            }
+        }
+
         #[cfg(not(any(
             all(feature = "android", target_os = "android"),
-            all(feature = "ohos", target_os = "ohos")
+            all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
         )))]
         match ClientStream::new_tokio_ssl(client_config, ip, port, server_name).await {
             Ok(client_stream) => match client_stream.do_handshake().await {

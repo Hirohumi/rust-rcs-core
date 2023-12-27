@@ -14,6 +14,6 @@
 
 #[cfg(all(feature = "android", target_os = "android"))]
 pub mod android_socket;
-#[cfg(all(feature = "ohos", target_os = "ohos"))]
+#[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
 pub mod ohos_socket;
 pub mod stream;

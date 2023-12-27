@@ -23,13 +23,23 @@ use crate::ffi::icc::IccChannel;
 use crate::ffi::log::platform_log;
 use crate::util::raw_string::{FromRawStr, StrFind};
 
+#[cfg(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
+))]
 const PLATFORM_SUPPORT_DIRECT_AKA: bool = true;
+
+#[cfg(not(any(
+    all(feature = "android", target_os = "android"),
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
+)))]
+const PLATFORM_SUPPORT_DIRECT_AKA: bool = false;
 
 const LOG_TAG: &str = "aka";
 
 #[cfg(any(
     all(feature = "android", target_os = "android"),
-    all(feature = "ohos", target_os = "ohos")
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
 ))]
 extern "C" {
     fn platform_perform_aka(
@@ -42,7 +52,7 @@ extern "C" {
 
 #[cfg(any(
     all(feature = "android", target_os = "android"),
-    all(feature = "ohos", target_os = "ohos")
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
 ))]
 fn perform_aka(challenge_data: &[u8], subscription_id: i32) -> Result<Vec<u8>, ErrorKind> {
     let mut out_size: size_t = 0;
@@ -74,7 +84,7 @@ fn perform_aka(challenge_data: &[u8], subscription_id: i32) -> Result<Vec<u8>, E
 
 #[cfg(not(any(
     all(feature = "android", target_os = "android"),
-    all(feature = "ohos", target_os = "ohos")
+    all(feature = "ohos", all(target_os = "linux", target_env = "ohos"))
 )))]
 fn perform_aka(challenge_data: &[u8], subscription_id: i32) -> Result<Vec<u8>, ErrorKind> {
     Err(ErrorKind::FFI)
