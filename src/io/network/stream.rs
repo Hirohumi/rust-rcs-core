@@ -16,16 +16,14 @@ extern crate rustls;
 extern crate tokio;
 
 use std::future::Future;
+#[cfg(not(all(feature = "android", target_os = "android")))]
+use std::io::{Read, Write};
 use std::net::IpAddr;
 use std::pin::Pin;
 #[cfg(not(all(feature = "android", target_os = "android")))]
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::{
-    fmt, io,
-};
-#[cfg(not(all(feature = "android", target_os = "android")))]
-use std::io::{Read, Write};
+use std::{fmt, io};
 
 #[cfg(not(all(feature = "android", target_os = "android")))]
 use rustls::pki_types::ServerName;
@@ -136,14 +134,25 @@ impl ClientSocket {
     }
 
     #[cfg(all(feature = "ohos", all(target_os = "linux", target_env = "ohos")))]
-    pub async fn connect(self, ip: IpAddr, port: u16, cc: Option<ClientConnection>) -> Result<ClientStream> {
+    pub async fn connect(
+        self,
+        ip: IpAddr,
+        port: u16,
+        cc: Option<ClientConnection>,
+    ) -> Result<ClientStream> {
         match self.0.connect(ip, port) {
             Ok(task) => match task.await {
-                Ok(stream) => if let Some(cc) = cc {
-                    Ok(ClientStream(OhosStream::Tls(cc, stream, TlsState::Connected)))
-                } else {
-                    Ok(ClientStream(OhosStream::Tcp(stream)))
-                },
+                Ok(stream) => {
+                    if let Some(cc) = cc {
+                        Ok(ClientStream(OhosStream::Tls(
+                            cc,
+                            stream,
+                            TlsState::Connected,
+                        )))
+                    } else {
+                        Ok(ClientStream(OhosStream::Tcp(stream)))
+                    }
+                }
                 Err(_) => Err(ErrorKind::Io),
             },
             Err(_) => Err(ErrorKind::Io),

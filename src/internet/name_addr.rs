@@ -178,7 +178,8 @@ impl<'a> AsNameAddr<'a> for [u8] {
                     }
 
                     (None, None) => {
-                        let uri = syntax::trim(&self[uri_spec_start_index..i]);
+                        let end = if i + 1 == self.len() { i + 1 } else { i };
+                        let uri = syntax::trim(&self[uri_spec_start_index..end]);
                         let name_addr = NameAddr::from_name_uri(None, Some(uri));
                         name_addresses.push(name_addr);
                     }

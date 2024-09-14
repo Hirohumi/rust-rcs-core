@@ -24,14 +24,12 @@ use libc::{AF_INET, AF_INET6, AF_UNIX};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 use crate::ffi::{
-    ohos::sock::{
-        close_socket, create_socket, get_socket_info,
-        get_socket_local_address, get_socket_local_port,
-        read_socket, shutdown_socket, socket_bind, socket_connect,
-        socket_finish_connect, write_socket,
-        SocketCHandleWrapper,
-    },
     log::platform_log,
+    ohos::sock::{
+        close_socket, create_socket, get_socket_info, get_socket_local_address,
+        get_socket_local_port, read_socket, shutdown_socket, socket_bind, socket_connect,
+        socket_finish_connect, write_socket, SocketCHandleWrapper,
+    },
     r#async::WakerHandle,
 };
 
@@ -47,7 +45,7 @@ impl OhosTcpStream {
         Ok(OhosTcpStream { socket })
     }
 
-    pub fn bind(&self, af:i32, ip: &str, port: u16) -> io::Result<()> {
+    pub fn bind(&self, af: i32, ip: &str, port: u16) -> io::Result<()> {
         platform_log(LOG_TAG, "bind()");
         socket_bind(&self.socket, af, ip, port)
     }
