@@ -79,6 +79,14 @@ impl SipTransport {
             SipTransportType::TLS => format!("SIP/2.0/TLS {}", self.transport_address),
         }
     }
+
+    pub fn get_contact_transport_type(&self) -> String {
+        match self.transport_type {
+            SipTransportType::UDP => String::from("udp"),
+            SipTransportType::TCP => String::from("tcp"),
+            SipTransportType::TLS => String::from("tcp"),
+        }
+    }
 }
 
 pub fn setup_sip_transport<T, F>(

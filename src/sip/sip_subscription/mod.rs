@@ -51,6 +51,7 @@ use super::{
 };
 
 pub const SERVER_SUPPORT_RFC_6665: bool = false;
+pub const TREAT_SUBSCRIBE_487_AS_SUCCESS: bool = true;
 
 pub const LOG_TAG: &str = "sip_subscription";
 
@@ -304,7 +305,12 @@ impl ClientTransactionCallbacks for InitialSubscribeContext {
                     }
                 }
 
-                subscriber.on_event(SubscriberEvent::SubscribeFailed(l.status_code as u32));
+                if l.status_code == 487 && TREAT_SUBSCRIBE_487_AS_SUCCESS {
+                    self.subscribe_request.on_event(); // prevent timer-N from firing
+                    subscriber.on_event(SubscriberEvent::SubscribeFailed(200));
+                } else {
+                    subscriber.on_event(SubscriberEvent::SubscribeFailed(l.status_code as u32));
+                }
             }
         }
     }

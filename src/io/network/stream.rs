@@ -181,7 +181,7 @@ impl ClientSocket {
                     Ok(ClientStream(TokioStream::Tcp(stream)))
                 }
             }
-            Err(_) => todo!(),
+            Err(_) => Err(ErrorKind::Io),
         }
     }
 }

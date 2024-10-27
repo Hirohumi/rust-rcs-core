@@ -976,7 +976,7 @@ fn setup_http_connection(
                             if let Ok(reader) = body.reader() {
                                 let reader =
                                     ProgressReportingReader::new(reader, move |read| match prog_tx
-                                        .blocking_send(read)
+                                        .try_send(read) // can drop a few progress reports, it's fine
                                     {
                                         Ok(()) => {}
                                         Err(e) => {}

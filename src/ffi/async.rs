@@ -4,11 +4,11 @@ use std::{
 };
 
 pub struct WakerHandle {
-    pub(crate) waker: Arc<Mutex<Option<Waker>>>,
+    pub waker: Arc<Mutex<Option<Waker>>>,
 }
 
 impl WakerHandle {
-    pub(crate) fn new(waker: &Waker) -> WakerHandle {
+    pub fn new(waker: &Waker) -> WakerHandle {
         let waker = waker.clone();
         WakerHandle {
             waker: Arc::new(Mutex::new(Some(waker))),
